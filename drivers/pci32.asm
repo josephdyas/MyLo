@@ -26,6 +26,7 @@ EntryPoint_pci_driver:
 	mov [ebx+VDO.ScanBus], PciDriver_ScanBus
 	mov dword [ebx+VDO.DeviceObject], 0
 	mov word [ebx+VDO.DeviceType], SD_PCI_BUS
+	mov word [ebx+VDO.DeviceType], SD_PCI_BUS
 
 	ret
 ;==================================================================

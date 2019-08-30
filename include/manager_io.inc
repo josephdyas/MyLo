@@ -3,7 +3,11 @@
 ;==============================================================================
 ; CONSTANTS
 ; Driver Types
-SD_PCI_BUS equ 1
+SD_PCI_BUS = 0001h
+SD_USB_BUS = 0002h
+
+SD_PCI_HOST_BRIDGE = 0003h
+
 ;==============================================================================
 ; STRUCTURES
 struct KERNEL_DEVICE_DRIVER_OBJECT

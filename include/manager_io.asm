@@ -7,12 +7,14 @@
 ;	InitIOManager	- Init the Input Output Manager sctructures, buffers and variables
 ;	AllocDriverObject - Return a driver structure
 ;	AllocDeviceObject -
-;	CreateDeviceObject -
 ;	RegisterDrivers - 
 ;	InitDeviceSystem -
 ; Imported Functions
 ;	AllocMemory
 ;	PrintK
+; Exported functions
+;	CreateDeviceObject -
+;	MatchDeviceDriver -
 
 virtual at 0
 MIOVDDO KERNEL_DEVICE_DRIVER_OBJECT
@@ -123,7 +125,7 @@ return_driver_object:
 	shl eax, 5 ; eax*32 ( get the bit offset into 16 bytes array)
 	add eax, ecx
 	shl eax, 6 ; eax*64 ( get the DriverObject offset)
-	add eax, [gKernelDriverObjectPool] 
+	add eax, [gKernelDriverObjectPool]
 	jmp exit_alloc_driver_object
 no_driver_object:
 	mov eax, -1
@@ -165,4 +167,12 @@ no_device_object:
 	mov eax, -1
 exit_alloc_device_object:
 	ret
+;==============================================================================
+;
+CreateDeviceObject:
+
+	ret
+;==============================================================================
+
+
 ;==============================================================================
