@@ -22,65 +22,62 @@ loop_show_time:
 strprintdword_32_put db '0xXXXXXXXX'
 ;==============================================================================
 ; eax = number to be displayed
-PrintDword:
-
+PutDword:
 	push esi edi
-	mov esi,strprintdword_32
-	add esi,2
+	mov esi,strputdword_32+2
+	call ConvertHexDword
+	mov esi,strputdword_32
+	call Putstty80x25
+	pop edi esi
+	ret
+strputdword_32 db '0xXXXXXXXX ',0
+;==============================================================================
+; eax = number to be displayed
+PrintDword:
+	push esi edi
+	mov esi,strprintdword_32+2
 	call ConvertHexDword
 	mov esi,strprintdword_32
 	call Putstty80x25
 	pop edi esi
 	ret
 PrintWord:
-
 	push esi edi
-	mov esi,strprintword_32
-	add esi,2
+	mov esi,strprintword_32+2
 	call ConvertHexWord
 	mov esi,strprintword_32
 	call Putstty80x25
 	pop edi esi
 	ret
-
 strprintword_32  db '0xXXXX',0dh,0
 strprintdword_32 db '0xXXXXXXXX',0dh,0
 ;==============================================================================
 ; esi = address of the buffer to receiv string
 ; eax = dword,word or byte to convert
 ConvertHexDword:
-
 	push esi edi ebx ecx
-
 	mov edi,esi
 	add edi,7
 	mov ebx,eax
 	mov ecx,8
 	cld					; decrement edi
 	jmp  repeat_converthexdword
-
 ConvertHexWord:
-
 	push esi edi ebx ecx
-
 	mov edi,esi
 	add edi,3
 	mov ebx,eax
 	mov ecx,4
 	cld		  ; decrement edi
 	jmp  repeat_converthexdword
-
 ConvertHexByte:
 	push esi edi ebx ecx
-
 	mov edi,esi
 	add edi,1
 	mov ebx,eax
 	mov ecx,2
 	cld		  ; decrement edi
-
 repeat_converthexdword:
-
 	cmp ecx,0
 	jz  exit_converthexdword
 	mov esi,hextable
@@ -92,40 +89,29 @@ repeat_converthexdword:
 	dec ecx
 	sub edi,2
 	jmp repeat_converthexdword
-
 exit_converthexdword:
-
 	pop ecx ebx edi esi
 	ret
-
 hextable db '0123456789ABCDEF'
 ;============================================================================
 ;############################################################################
 ; esi = address of memory to show data
-DumpMemory:;,param
-
+DumpMemory:
 ;--------------------------------------
       push edi esi ebx
-
       cld
       mov esi,dump_clear
       mov edi,dump_line
       mov ecx,(dump_clearE-dump_clear)
       rep movsb
-
       pop ebx
       pop esi
 ;--------------------------------------
-
       ;mov esi,[param]
       mov ecx,256
-
 ; convert the offset of the first 16 bytes
-
       call NewLine80x25
-
       mov  edx,ecx
-
       push esi
       mov eax,esi
       mov esi, dump_line
@@ -136,39 +122,30 @@ DumpMemory:;,param
       mov [dump_currentbyte],dump_byteslow
       mov [dump_currentchar],0
       mov ecx,8
-
 ; convert the first 8 bytes
-
 repeat_dump_bytelow:
-
 	test edx,edx
 	jz exit_dump		; the number of bytes to dump was reached
-
 	mov al, byte [esi]
 ;------------------------------------
 ; test if is a ASCII character
-
 	cmp al,0x20
 	jb dump_continue1
 	cmp al,0x7d
 	ja dump_continue1
-
 	push esi
 	mov esi,dump_ASCII
 	add esi, [dump_currentchar]
 	mov byte [esi],al
 	pop esi
 	;jmp dump_continue1
-
 dump_continue1:
-
 	inc [dump_currentchar]
 ;------------------------------------
 	mov esi,[dump_currentbyte]
 	push ebx
 	call ConvertHexByte
 	pop ebx
-
 	inc ebx
 	mov esi,ebx
 	add [dump_currentbyte],3
@@ -178,16 +155,11 @@ dump_continue1:
 	jmp repeat_dump_bytelow
 ;+++++++++++++++++++++++++++++++++++++++++++
 dump_bytehigh:
-
-
       mov [dump_currentbyte],dump_byteshigh
       mov ecx,8
-
 repeat_dump_bytehigh:
-
 	test edx,edx
 	jz exit_dump		; the number of bytes to dump was reached
-
 	mov al, byte [esi]
 ;------------------------------------
 ; test if is a ASCII character
@@ -195,23 +167,19 @@ repeat_dump_bytehigh:
 	jb dump_continue2
 	cmp al,0x7d
 	ja dump_continue2
-
 	push esi
 	mov esi,dump_ASCII
 	add esi,[dump_currentchar]
 	mov byte [esi],al
 	pop esi
 	;jmp dump_continue2
-
 dump_continue2:
-
 	inc [dump_currentchar]
 ;------------------------------------
 	mov esi,[dump_currentbyte]
 	push ebx
 	call ConvertHexByte
 	pop ebx
-
 	inc ebx
 	mov esi,ebx
 	add [dump_currentbyte],3
@@ -219,14 +187,10 @@ dump_continue2:
 	dec ecx
 	jcxz exit_repeat_dump_bytehigh
 	jmp repeat_dump_bytehigh
-
 ;-------------------------------------
-
 exit_repeat_dump_bytehigh:
-
 	test edx,edx
 	jz exit_dump		; the number of bytes to dump was reached
-
 ; convert the offset of the first 16 bytes
      ; print the row
       push esi
@@ -234,17 +198,14 @@ exit_repeat_dump_bytehigh:
       push ebx
       mov esi,dump_line
       call Putstty80x25
-
       cld
       mov esi,dump_clear
       mov edi,dump_line
       mov ecx,(dump_clearE-dump_clear)
       rep movsb
-
       pop ebx
       pop edx
       pop esi
-
       push esi
       mov eax,esi
       mov esi, dump_line
@@ -256,9 +217,7 @@ exit_repeat_dump_bytehigh:
       mov [dump_currentbyte],dump_byteslow
       mov ecx,8
       jmp repeat_dump_bytelow
-
 exit_dump:
-
       mov esi,dump_line
       call Putstty80x25
 exit_dump_error:

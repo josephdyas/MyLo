@@ -1,6 +1,6 @@
 ;##############################################################################
 ;
-;  ehci.asm
+;  EHCI.asm
 ; 32 bit Ehci driver for Mylo
 ; Functions
 ; -------------------------------------
@@ -28,6 +28,10 @@
 ; change the SLEEP macro
 ; =============================================================================
 virtual at 0
+VDO KERNEL_DEVICE_DRIVER_OBJECT
+end virtual
+
+virtual at 0
 ehcidesc EHCI_DESCRIPTOR
 end virtual
 virtual at 0
@@ -53,6 +57,54 @@ setup_packet SETUP_PACKET
 end virtual
 
 EhciEECPReg dd ?
+
+;==================================================================
+; DRIVER HEADER
+ehci_driver:
+	Signature	dd 'MYOS'
+	DriverEntry	dd EntryPoint_ehci_driver-ehci_driver
+	ImageSize	dd ehci_driver_end-ehci_driver
+	
+;TODO: initialize the DeviceClass field
+;==================================================================
+; Pci Driver Entry Point
+; ebx = Driver Objetct
+EntryPoint_ehci_driver:
+
+	mov [ebx+VDO.AddDevice], EhciDriver_AddDevice
+	mov [ebx+VDO.RemoveDevice], EhciDriver_RemoveDevice
+	mov dword [ebx+VDO.DeviceObject], 0
+	mov word [ebx+VDO.DeviceType], SD_ENHANCED_HOST_CONTROLLER
+	mov dword [ebx+VDO.DeviceClass], 0020030Ch
+	mov word [ebx+VDO.BusType], SD_PCI_BUS
+
+	ret
+;==================================================================
+; ebx = Driver Object
+; edx = Parent Bus Device Object
+; ecx = Bus, Device, Function/Interface
+EhciDriver_AddDevice:
+
+	call IOCreateDevice
+	mov edi, eax
+; fill the Device Object
+	mov word [edi+VDO.DeviceType], SD_ENHANCED_HOST_CONTROLLER
+	mov word [edi+VDO.BusType], SD_PCI_BUS
+	mov dword [edi+VDO.DriverObject], ebx
+	mov dword [edi+VDO.DeviceParent], edx
+	mov dword [edi+VDO.Address], ecx
+; attach the new device to Driver device list
+	mov eax, [ebx+VDDO.DeviceObject]
+	mov [edi+VDO.NextDevice], eax
+	mov [ebx+VDDO.DeviceObject], edi
+
+	ret
+;==================================================================
+; ebx = Driver Objetct
+EhciDriver_RemoveDevice:
+
+	ret
+;==================================================================
 ;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ; ebx = pci config space
 ; edx = EHCI descriptor
@@ -823,3 +875,4 @@ FreeDeviceDescriptor:
 	sti
 	ret
 ;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+ehci_driver_end:

@@ -7,31 +7,53 @@ pci_driver:
 	ImageSize	dd pci_driver_end-pci_driver
 ;==================================================================
 virtual at 0
-VDO KERNEL_DEVICE_DRIVER_OBJECT
+VDDO KERNEL_DEVICE_DRIVER_OBJECT
+end virtual
+virtual at 0
+VDO KERN_DEVICE_OBJECT
+virtual at 0
+VPCI_H	PCI_HEADER_TYPE_0
 end virtual
 
-prev_device	 dd  0
-PCI_buffer	 dd  0
-PCI_deviceindex  dd  0
-PCI_deviceid	 db  0
-PCI_deviceCount  dd  0
+prev_device		dd 0
+PCI_buffer		dd 0
+PCI_deviceindex	dd 0
+PCI_deviceid	db 0
+PCI_deviceCount	dd 0
+PCI_current_bus	db 
 
+;TODO: initialize the DeviceClass field
 ;==================================================================
 ; Pci Driver Entry Point
 ; ebx = Driver Objetct
 EntryPoint_pci_driver:
 
-	mov [ebx+VDO.AddDevice], PciDriver_AddDevice
-	mov [ebx+VDO.RemoveDevice], PciDriver_RemoveDevice 
-	mov [ebx+VDO.ScanBus], PciDriver_ScanBus
-	mov dword [ebx+VDO.DeviceObject], 0
-	mov word [ebx+VDO.DeviceType], SD_PCI_BUS
-	mov word [ebx+VDO.DeviceType], SD_PCI_BUS
+	mov [ebx+VDDO.AddDevice], PciDriver_AddDevice
+	mov [ebx+VDDO.RemoveDevice], PciDriver_RemoveDevice 
+	mov [ebx+VDDO.ScanBus], PciDriver_ScanBus
+	mov dword [ebx+VDDO.DeviceObject], 0
+	mov word [ebx+VDDO.DeviceType], SD_PCI_BUS
+	mov word [ebx+VDDO.BusType], SD_ROOT_BUS
 
 	ret
 ;==================================================================
-; ebx = Driver Objetct
+; ebx = Driver Object
+; edx = Parent Bus Device Object
+; ecx = Bus, Device, Function/Interface
 PciDriver_AddDevice:
+
+	call IOCreateDevice
+	mov edi, eax
+; fill the Device Object
+	mov word [edi+VDO.DeviceType], SD_PCI_HOST_BRIDGE
+	mov word [edi+VDO.BusType], SD_ROOT_BUS
+	mov dword [edi+VDO.DriverObject], ebx
+	mov dword [edi+VDO.DeviceParent], edx
+	mov dword [edi+VDO.Address], ecx
+; attach the new device to Driver device list
+	mov eax, [ebx+VDDO.DeviceObject]
+	mov [edi+VDO.NextDevice], eax
+	mov [ebx+VDDO.DeviceObject], edi
 
 	ret
 ;==================================================================
@@ -40,22 +62,53 @@ PciDriver_RemoveDevice:
 
 	ret
 ;==================================================================
-; ebx = Driver Objetct
 PciDriver_ScanBus:
 
+	mov [PCI_current_bus], 0
 	mov ebx, 2000h
 	call AllocMemory
 	push eax
 	mov ebx, eax
 	add eax, 2000h-400h
 	mov edx, eax
-	xor ecx,ecx
+	push edx
+	movzx ecx, byte [PCI_current_bus]
 	call PciDriver_ScanPciBus
-	pop ebx
-	mov edx,eax
-	call ShowPciDevInfo
-; Create a new device object of each device found
-	
+	pop edi
+	pop esi
+	mov ecx, eax
+	push dword 0	; Current PCI Header variable
+	push dword 0	; Current Pci Device index (returned by PciDriver_ScanPciBus)
+	xor eax, eax
+;<<****** report each device to the IO Manager
+repeat_report_devices:
+	push ecx	; save device counter
+	mov eax, [esp+4]
+	mov ebx, [edi+eax]
+	mov bl, SD_PCI_BUS	; bus type
+;Function/Interface, Device, Bus, BusType
+;swap ebx( ABCD -> DCBA)
+	xchg bh, bl
+	ror ebx, 16
+	xchg bh, bl
+	; mov BusType to bl
+	rol ebx, 8
+	mov eax, [esp+8]
+	mov edx, dword [esi+eax+VPCI_H.RevisionID]
+; RevisionID, ProgIF/Protocol, SubClass, ClassCode
+;swap edx( ABCD -> DCBA)
+	xchg dh, dl
+	ror edx, 16
+	xchg dh, dl
+;VendorID, DeviceID
+	mov ecx, dword [esi+eax+VPCI_H.VendorID]
+	call IOReportDevice
+	add dword [esp+4], 4
+	add dword [esp+8], 100h
+	pop ecx
+	loop repeat_report_devices
+;>>******
+	add esp, 2*4	; restore stack
 	ret
 ; =================================================================
 ; Scan the PCI bus searching for devices
@@ -312,7 +365,7 @@ pqdc_device_found:
 	mov eax, esi
 pqdc_exit:
 	pop edi
-		pop esi
+	pop esi
 	ret
 ;==================================================================
 ; ebx =: bxh = bus, bxl = device, bh = func, bl = index

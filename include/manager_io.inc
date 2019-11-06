@@ -2,11 +2,18 @@
 ;	    CONSTANTS AND STRUCTURES FOR MYOS EHCI DRIVE
 ;==============================================================================
 ; CONSTANTS
-; Driver Types
-SD_PCI_BUS = 0001h
-SD_USB_BUS = 0002h
+; Driver/Device Types
+SD_SYSTEM_ROOT_BUS			= 0ffffh
+SD_PCI_HOST_BRIDGE			= 00002h
+SD_UNIVERSAL_HOST_CONTROLLER = 0003h
+SD_ENHANCED_HOST_CONTROLLER	= 00004h
+SD_ADVANCED_HOST_CONTROLLER	= 00005h
 
-SD_PCI_HOST_BRIDGE = 0003h
+; Bus Types
+SD_ROOT_BUS					= 00010h
+SD_PCI_BUS					= 00012h
+SD_USB_BUS					= 00013h
+
 
 ;==============================================================================
 ; STRUCTURES
@@ -22,18 +29,20 @@ struct KERNEL_DEVICE_DRIVER_OBJECT
 	ScanBus			dd ?	; Used only by Bus Drivers
 ; driver identification
 	DeviceType		dw ?	; System constant code describing the device type
-	BusType			dw ?	; System constant code defing wich bus type the devices are atached
-	DriverName		dd ?	; null terminated string with ascii name used to indentify driver
-	Reserved		dd 6 dup(?) ; complete the 64 bytes structure
+	BusType			dw ?	; System constant code defining wich bus type the devices are atached
+	DriverName		dd ?	; Null terminated string with ascii name used to indentify driver
+	DeviceClass		dd ?	; Must have format - Class, Subclass, Interface/Protocol
+	Reserved		dd 5 dup(?) ; complete the 64 bytes structure
 ends ; 64 bytes
 
-struct KERNEL_DEVICE_OBJECT 
-	DeviceType		dw ?	; code defining device type
-	BusType			dw ?	; code defining bus type where the device is atached
-	DeviceName		dd ?	; string defining the device name
-	DriverObject	dd ?	; driver object representing the driver that manage this device
-	DeviceParent	dd ?	; device object representing the parante device	
-	NextDevice		dd ?	; device object assigned by driver for each divice that it manage.
-	Reserved		dd 11 dup(?)
+struct KERNEL_DEVICE_OBJECT
+	DeviceType		dw ?	; Code defining device type
+	BusType			dw ?	; Code defining bus type where the device is atached
+	DeviceName		dd ?	; String defining the device name
+	DriverObject	dd ?	; Driver object representing the driver that manage this device
+	DeviceParent	dd ?	; Device object representing the perante device	
+	NextDevice		dd ?	; Device object assigned by driver for each device that it manage.
+	Address			dd ?	; Device Address (Bus/Device/Function)
+	Reserved		dd 10 dup(?)
 ends ; 64 bytes
 

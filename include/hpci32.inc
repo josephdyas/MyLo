@@ -4,10 +4,10 @@
 PCI_CONFIG_ADDRESS  equ 0cf8h
 PCI_CONFIG_DATA     equ 0cfch
 io_CF8              equ 80000000h
-PCI_BLOCKINFOSIZE   equ 0x0fc    ;address dd 0|0000000|00000000|00000|000|111111|00b
+PCI_BLOCKINFOSIZE   equ 00fch    ;address dd 0|0000000|00000000|00000|000|111111|00b
 PCI_FUNCTION_OFFSET equ 8
 PCI_DEVICE_OFFSET   equ 11
-PCI_BUS_MASK        equ 0x00ff0000
+PCI_BUS_MASK        equ 00ff0000h
 
 ;PCI_DEVICE_CONFIG_SPACE = PCI_SCTRUCT_BLOCK
 PCI_CONFIG_SPACE_SIZE = 100h
@@ -20,7 +20,7 @@ struct PCI_HEADER_TYPE_0
      Command               dw ?
      Status                dw ?
      RevisionID            db ?
-     ProgIF                db ?    ; programmers interface
+     ProgIF                db ?
      SubClass              db ?
      ClassCode             db ?
      CacheLineSize         db ?

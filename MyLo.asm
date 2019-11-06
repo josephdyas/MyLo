@@ -223,7 +223,7 @@ empty_8042_2:
 
 	mov	eax, cr0
 	or	dword eax, 0x00000001	; protected mode
-       ; and	 eax, 10011111b *65536*256 + 0xffffff ; caching enabled
+	; and	 eax, 10011111b *65536*256 + 0xffffff ; caching enabled
 	mov	cr0, eax
 	jmp	farjmp
 	nop
@@ -378,18 +378,7 @@ repeat_get_cpu_brand:
 
 	mov esi,boot_devices
 	call Putstty80x25
-
-;	 mov ebx, 1000h
-;	 call AllocMemory
-;	 mov [gPciStructBuffer], eax
-;	 mov ebx, eax
-;	 mov edx, gPciDeviceIndex
-;	 call ScanPCIBus
-;	 mov [gPciDeviceCount], eax
-;
-;	 mov ebx, gPciDeviceIndex
-;	 mov edx, eax
-;	 call ShowPciInfo
+	
 	jmp StopSystem
 
 	jmp search_echi_host_controller
@@ -517,12 +506,12 @@ StopSystem:
 ;==============================================================================
 ;AUXILIAR CODE FOR 32 BITS MODE
 
-include 'include\manager_memory.asm'
-include 'include\manager_io.asm'
-include 'driver\sys32.asm'
-include 'driver\vesa12.asm'
-include 'driver\pci32.asm'
-include 'driver\ehci.asm'
+include 'sysmanager\manager_memory.asm'
+include 'sysmanager\manager_io.asm'
+include 'drivers\sys32.asm'
+include 'drivers\vesa12.asm'
+include 'drivers\pci32.asm'
+include 'drivers\ehci.asm'
 include 'api32.inc'
 ;#############################################################################
 ; GLOBAL CONSTANTS AND VARIABLES
