@@ -28,10 +28,6 @@
 ; change the SLEEP macro
 ; =============================================================================
 virtual at 0
-VDO KERNEL_DEVICE_DRIVER_OBJECT
-end virtual
-
-virtual at 0
 ehcidesc EHCI_DESCRIPTOR
 end virtual
 virtual at 0
@@ -61,9 +57,9 @@ EhciEECPReg dd ?
 ;==================================================================
 ; DRIVER HEADER
 ehci_driver:
-	Signature	dd 'MYOS'
-	DriverEntry	dd EntryPoint_ehci_driver-ehci_driver
-	ImageSize	dd ehci_driver_end-ehci_driver
+	ehci_driver_Signature	    dd 'MYOS'
+	ehci_driver_DriverEntry     dd EntryPoint_ehci_driver-ehci_driver
+	ehci_driver_ImageSize	    dd ehci_driver_end-ehci_driver
 	
 ;TODO: initialize the DeviceClass field
 ;==================================================================
@@ -71,12 +67,12 @@ ehci_driver:
 ; ebx = Driver Objetct
 EntryPoint_ehci_driver:
 
-	mov [ebx+VDO.AddDevice], EhciDriver_AddDevice
-	mov [ebx+VDO.RemoveDevice], EhciDriver_RemoveDevice
-	mov dword [ebx+VDO.DeviceObject], 0
-	mov word [ebx+VDO.DeviceType], SD_ENHANCED_HOST_CONTROLLER
-	mov dword [ebx+VDO.DeviceClass], 0020030Ch
-	mov word [ebx+VDO.BusType], SD_PCI_BUS
+	mov [ebx+VDDO.AddDevice], EhciDriver_AddDevice
+	mov [ebx+VDDO.RemoveDevice], EhciDriver_RemoveDevice
+	mov dword [ebx+VDDO.DeviceObject], 0
+	mov word [ebx+VDDO.DeviceType], SD_ENHANCED_HOST_CONTROLLER
+	mov dword [ebx+VDDO.DeviceClass], 0020030Ch
+	mov word [ebx+VDDO.BusType], SD_PCI_BUS
 
 	ret
 ;==================================================================

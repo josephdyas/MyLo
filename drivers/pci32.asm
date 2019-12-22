@@ -2,46 +2,83 @@
 ;==================================================================
 ; DRIVER HEADER
 pci_driver:
-	Signature	dd 'MYOS'
-	DriverEntry	dd EntryPoint_pci_driver-pci_driver
-	ImageSize	dd pci_driver_end-pci_driver
+	pci_driver_Signature	   dd 'MYOS'
+	pci_driver_DriverEntry	   dd EntryPoint_pci_driver-pci_driver
+	pci_driver_ImageSize	   dd pci_driver_end-pci_driver
 ;==================================================================
-virtual at 0
-VDDO KERNEL_DEVICE_DRIVER_OBJECT
-end virtual
-virtual at 0
-VDO KERN_DEVICE_OBJECT
 virtual at 0
 VPCI_H	PCI_HEADER_TYPE_0
 end virtual
 
 prev_device		dd 0
 PCI_buffer		dd 0
-PCI_deviceindex	dd 0
+PCI_deviceindex dd 0
 PCI_deviceid	db 0
-PCI_deviceCount	dd 0
-PCI_current_bus	db 
+PCI_deviceCount dd 0
+PCI_current_bus db 0
 
 ;TODO: initialize the DeviceClass field
 ;==================================================================
 ; Pci Driver Entry Point
-; ebx = Driver Objetct
+; ebx = Driver Object
 EntryPoint_pci_driver:
 
 	mov [ebx+VDDO.AddDevice], PciDriver_AddDevice
-	mov [ebx+VDDO.RemoveDevice], PciDriver_RemoveDevice 
-	mov [ebx+VDDO.ScanBus], PciDriver_ScanBus
+	mov [ebx+VDDO.RemoveDevice], PciDriver_RemoveDevice
+	mov [ebx+VDDO.IORoutine], PciDriver_IORoutine
+	mov [ebx+VDDO.DeviceControl], PciDriver_DeviceControl
 	mov dword [ebx+VDDO.DeviceObject], 0
 	mov word [ebx+VDDO.DeviceType], SD_PCI_BUS
+	mov dword [ebx+VDDO.DeviceClass], 00000006h
 	mov word [ebx+VDDO.BusType], SD_ROOT_BUS
 
+	ret
+;==================================================================
+;
+PciDriver_IORoutine:
+
+
+;==================================================================
+; ebx = Device Object
+; edx = Device Control Code
+; ecx = inpurt output buffer
+PciDriver_DeviceControl:
+
+	mov eax, edx
+	and eax, 0ff000000h
+	cmp eax, SD_SYSTEM_DEVICE_CONTROL
+	je PciDriver_HSystemDeviceControl
+	cmp eax, SD_DEVICE_CONTROL
+	je PciDriver_HDevControl
+	jmp PciDriver_UnknowControlCode
+PciDriver_HSystemDeviceControl:
+	mov eax, edx
+	cmp al, IO_CONTROL_COMMAND_INIT_DEVICE
+	je PciDriver_HInitDevice
+	cmp al, IO_CONTROL_COMMAND_SCAN_BUS
+	je PciDriver_HScanBus
+	jmp PciDriver_UnknowControlCode
+PciDriver_HInitDevice:
+	call PciDriver_ScanBus
+	xor eax, eax
+	ret
+PciDriver_HDevControl:
+	mov eax, ebx
+	shr eax, 8
+	cmp al, 0
+	jmp PciDriver_UnknowControlCode
+PciDriver_HScanBus:
+
+PciDriver_UnknowControlCode:
+	mov eax, -1
 	ret
 ;==================================================================
 ; ebx = Driver Object
 ; edx = Parent Bus Device Object
 ; ecx = Bus, Device, Function/Interface
+; eax <= DeviceObject
 PciDriver_AddDevice:
-
+	
 	call IOCreateDevice
 	mov edi, eax
 ; fill the Device Object
@@ -51,31 +88,43 @@ PciDriver_AddDevice:
 	mov dword [edi+VDO.DeviceParent], edx
 	mov dword [edi+VDO.Address], ecx
 ; attach the new device to Driver device list
-	mov eax, [ebx+VDDO.DeviceObject]
+	mov eax, [ebx+VDDO.DeviceObject]	; last device assigned
 	mov [edi+VDO.NextDevice], eax
 	mov [ebx+VDDO.DeviceObject], edi
-
+	mov eax, edi
 	ret
 ;==================================================================
-; ebx = Driver Objetct
+; ebx = Driver Object
 PciDriver_RemoveDevice:
 
 	ret
 ;==================================================================
 PciDriver_ScanBus:
 
-	mov [PCI_current_bus], 0
+	mov [PCI_current_bus], 1
 	mov ebx, 2000h
 	call AllocMemory
 	push eax
-	mov ebx, eax
-	add eax, 2000h-400h
+	mov edi, eax
 	mov edx, eax
+	mov ecx, 2000h/4
+	xor eax,eax
+	rep stosd
+	
+	mov ebx, edx
+	add edx, 2000h-400h
 	push edx
 	movzx ecx, byte [PCI_current_bus]
 	call PciDriver_ScanPciBus
-	pop edi
-	pop esi
+	pop edi	; device index buffer
+	pop esi	; device structure buffer
+	
+	; DEBUG -------
+	mov ebx, esi
+	mov edx, eax
+	call ShowPciDevInfo
+	ret
+	; DEBUG -------
 	mov ecx, eax
 	push dword 0	; Current PCI Header variable
 	push dword 0	; Current Pci Device index (returned by PciDriver_ScanPciBus)
@@ -108,6 +157,7 @@ repeat_report_devices:
 	pop ecx
 	loop repeat_report_devices
 ;>>******
+PciDriver_ScanBus_exit:
 	add esp, 2*4	; restore stack
 	ret
 ; =================================================================
@@ -126,8 +176,8 @@ PciDriver_ScanPciBus:
 	shl ecx, 16
 	bts ecx, 31
 	mov edx, ecx
-	or edx, 0x8000ff00
-	mov [prev_device], edx
+	or edx, 08000ff00h	; test the dev/function from 0 to max ff. On bus defined on ecx
+	mov [prev_device], 0ffffffffh
 ;****************************
 pciscanloop:
 	cmp ecx,edx
@@ -223,8 +273,8 @@ PciReadReg32:
 	ret
 ; -----------------------------------------------------------------
 ; ebx = PCI Device address dd 0|0000000|00000000|00000|000|000000|00b
-;			      / \     / \      / \   / \ / \	/ \
-;			     E	  Res	  Bus	  Dev	F    Reg    0
+;			                  / \     / \      / \   / \ / \	/ \
+;			                 E	  Res	  Bus	  Dev	F    Reg    0
 PciReadRegB:
 
 	or ebx, 0x80000000		; Set bit 31
@@ -300,7 +350,8 @@ PciWriteRegD:
 	ret
 ;==================================================================
 InitPCI:
-	mov eax, 0x80000000		; Bit 31 set for 'Enabled'
+	xor eax, eax; 0x80000000		; Bit 31 set for 'Enabled'
+	bts eax, 31
 	mov ebx, eax
 	mov dx, PCI_CONFIG_ADDRESS
 	out dx, eax

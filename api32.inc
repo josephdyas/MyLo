@@ -32,10 +32,11 @@ PutDword:
 	ret
 strputdword_32 db '0xXXXXXXXX ',0
 ;==============================================================================
-; eax = number to be displayed
+; ebx = number to be displayed
 PrintDword:
 	push esi edi
 	mov esi,strprintdword_32+2
+	mov eax, ebx
 	call ConvertHexDword
 	mov esi,strprintdword_32
 	call Putstty80x25
@@ -238,7 +239,7 @@ dump_clear	db 'XXXXXXXXh| ' ; 11
 dump_clearE:
 ;===============================================================================
 ;===============================================================================
-; ebx = Device Information Block Buffer
+; ebx = Device structure Buffer
 ; edx = Number of Devices
 virtual at edi
 	pciconfigspace PCI_HEADER_TYPE_0

@@ -178,9 +178,9 @@ gKernelDeviceObjectPool dd ?
 gKernelDriverObjectBitmap db 16 dup (0)
 gKernelDeviceObjectBitmap db 16 dup (0)
 ; contain the list of address of the drivers
-gKernelDriverList	dd pci_driver
+gKernelDriverList	dd rootbus_driver
+					dd pci_driver
 					dd ehci_driver
-					dd 0
 					dd 0
 					dd 0
 					dd 0

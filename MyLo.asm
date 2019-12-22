@@ -1,7 +1,7 @@
 ;##############################################################################
 ;		       BOOTLOADER - MYOS SYSTEM
 ;
-; Developed by Joseph Dias - Octuber, 2016 - 02.2018
+; Developed by Joseph Dias - Octuber, 2016 - 11.2019
 ; Version 0.0.1
 ;
 ;##############################################################################
@@ -32,7 +32,7 @@ include 'include\manager_io.inc'
 include 'include\drivers.inc'
 
 use16
-org 0x8000
+org 8000h
 ;##############################################################################
 file_start:
 jmp start
@@ -133,11 +133,11 @@ start:
     push 0
     pop es
 
-    mov   ax,0x4f00			; VESA BIOS function
-    mov   di,0x600
-    int   0x10
+    mov   ax, 4f00h			; VESA BIOS function
+    mov   di, 600h
+    int   10h
 
-    cmp   ax,0x004f
+    cmp   ax, 004fh
     je	  version
     mov   si,VesaNo
     call  puts
@@ -169,7 +169,7 @@ continue_mmap:
 ; Get the memory MAP
 	push word 0
 	pop es
-	mov di,MMAP_ADDRESS	 ; address of memory where the map will stored
+	mov di, MMAP_ADDRESS	 ; address of memory where the map will stored
       ;  add di,2
 	call do_e820
 	jnc mmap_ok
@@ -235,7 +235,7 @@ empty_8042_2:
 	mov	fs,ax
 	mov	gs,ax
 	mov	ss,ax
-	mov	esp,0x2fff
+	mov	esp, 2fffh
 	jmp	pword os_code:protected_mode_code
 ;==============================================================================
 include 'api16.inc'
@@ -251,51 +251,25 @@ protected_mode_code:
 
 	call InitializeInterruptSystem
 	
-;==============================================================================
-; SET THE TASK STATE SEGMENT
-
-;	 mov eax, tss_seg
-;	 mov edi, tss_l
-;	 mov [edi+2],ax
-;	 shr eax, 16
-;	 mov [edi+4], al
-;	 shr eax, 8
-;	 mov [edi+7], al
-;	 mov ax, tss_des
-;	 ltr ax 		 ;Load the Task State Descriptor
-;==============================================================================
-
 ;--------------------------------------
 ; set the timer counter
-	mov al, 0x36
-	out 0x43, al
+	mov al, 36h
+	out 43h, al
 	mov ax, 11931
-	out 0x40, al
+	out 40h, al
 	shr ax, 8
-	out 0x40, al
+	out 40h, al
 ;--------------------------------------
 ; start the interrupt handle
 	mov al,11111110b	   ; unmask irq 0 - timer and irq 1 - Keyboard
-	out 0x21,al
+	out 21h,al
 	mov ecx,32
-     ready_for_irqs:
-	mov   al,0x20
-	out   0x20,al		    ; send EOI to primary   PIC
-	out   0xa0,al		    ; send EOI to secondary PIC
+ready_for_irqs:
+	mov   al, 20h
+	out   20h,al		    ; send EOI to primary   PIC
+	out   0a0h,al		    ; send EOI to secondary PIC
 	loop  ready_for_irqs	    ; flush the queue
 	sti
-;==============================================================================
-; INITIALIZE MEMORY MANAGMENT
-	mov ebx, G_BlockList
-	mov edx, 100000h/PF_SIZE ;Number of page frames for 1 Megabyte
-	mov ecx, 100000h
-	call InitializeBlockList
-	call InitializeMemoryManager
-;==============================================================================
-; INITIALIZE I/O MANAGMENT
-	call InitIOManager
-	test eax,eax
-	js StopSystem	; Stop system boot if -1
 ;==============================================================================
 
 ;  Get CPU identification
@@ -371,18 +345,28 @@ repeat_get_cpu_brand:
 	mov esi,cpuid_brandString
 	call Putstty80x25
 	call NewLine80x25
+	
+;==============================================================================
+; INITIALIZE MEMORY MANAGMENT
+	mov ebx, G_BlockList
+	mov edx, 100000h/PF_SIZE ;Number of page frames for 1 Megabyte
+	mov ecx, 100000h
+	call InitializeBlockList
+	call InitializeMemoryManager
+;==============================================================================
+; INITIALIZE I/O MANAGMENT
+	call InitIOManager
+	test eax,eax
+	js StopSystem	; Stop system boot if -1
 ;==============================================================================
 ; DETECT PCI DEVICES
 	mov esi,boot_pcibus
-	call Putstty80x25
+	;call Putstty80x25
 
 	mov esi,boot_devices
-	call Putstty80x25
+	;call Putstty80x25
 	
 	jmp StopSystem
-
-	jmp search_echi_host_controller
-
 ;==============================================================================
 ; SEARCH AND INITIALIZE EHCI HOST CONTROLLER
 cursor	dw ?
@@ -510,6 +494,7 @@ include 'sysmanager\manager_memory.asm'
 include 'sysmanager\manager_io.asm'
 include 'drivers\sys32.asm'
 include 'drivers\vesa12.asm'
+include 'drivers\rootbus.asm'
 include 'drivers\pci32.asm'
 include 'drivers\ehci.asm'
 include 'api32.inc'

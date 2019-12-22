@@ -13,11 +13,23 @@
 ;	AllocMemory
 ;	PrintK
 ; Exported functions
+;	IODeviceConrol	- Send to device a Device Control Command
 ;	IOCreateDevice -
 ;	IOReportDevice - Used by Bus Drivers to report devices found on the bus.
 
+
+virtual at 0
+VDDO KERNEL_DEVICE_DRIVER_OBJECT
+end virtual
+virtual at 0
+VDO KERNEL_DEVICE_OBJECT
+end virtual
+
 virtual at 0
 MIOVDDO KERNEL_DEVICE_DRIVER_OBJECT
+end virtual
+virtual at 0
+MIOVDO KERNEL_DEVICE_OBJECT
 end virtual
 ;==============================================================================
 InitIOManager:
@@ -56,7 +68,7 @@ InitIOManager:
 InitDeviceSystem:
 ; Call the System Root Bus Driver to scan pci buses
 
-;search for a PCI Bus Driver
+;search for a Root Bus Driver
 	mov esi, [gKernelDriverObjectPool]
 	mov ecx, [gKDriverOPsize]
 ;****>>
@@ -72,7 +84,8 @@ search_root_bus_driver:
 	or eax, -1
 	jmp exit_InitDeviceSystem
 root_bus_driver_found:
-	mov eax, [esi+MIOVDDO.ScanBus]
+	mov edx, SD_SYSTEM_DEVICE_CONTROL+IO_CONTROL_COMMAND_INIT_DEVICE
+	mov eax, [esi+MIOVDDO.DeviceControl]
 	call eax
 
 exit_InitDeviceSystem:
@@ -84,7 +97,7 @@ RegisterDrivers:
 loop_load_drivers:
 	lodsd
 	test eax, eax
-	jz exit_retister_drivers
+	jz exit_register_drivers
 	push eax
 	call AllocDriverObject
 	mov ebx, eax
@@ -95,10 +108,11 @@ loop_load_drivers:
 	; ebx = DriverObject
 	call edx	; call the driver entry
 	jmp loop_load_drivers
-exit_retister_drivers:
+exit_register_drivers:
 	ret
 ;==============================================================================
-AllocDriverObject: 
+AllocDriverObject:
+	push esi ecx
 	lea esi, [gKernelDriverObjectBitmap]
 	lodsd
 	xor ecx,ecx
@@ -132,6 +146,7 @@ return_driver_object:
 no_driver_object:
 	mov eax, -1
 exit_alloc_driver_object:
+	pop ecx esi
 	ret
 ;==============================================================================
 AllocDeviceObject: 
@@ -177,13 +192,23 @@ IOCreateDevice:
 	call AllocDeviceObject
 	ret
 ;==============================================================================
+; Send a device control command
+; ebx = Device Object
+; edx = Control Code
+; ecx = input/output buffer
+IODeviceControl:
+	mov eax, [ebx+MIOVDO.DriverObject]
+	mov eax, [eax+MIOVDDO.DeviceControl]
+	call eax
+	ret
+;==============================================================================
 ;Description: Used by Bus Drivers to report a device found on the bus.
 
 ; ebx = Bus, Device, Function/Interface, BusType
 ; edx = RevisionID,ProgIF,SubClass,ClassCode
 ; ecx = VendorID, DeviceID
 ; esi = Parent Bus Device Object
-IOReportDevice:
+IOReportDevice:	
 	push esi
 	push ecx
 	mov ecx, [gKDriverOPsize]
@@ -195,20 +220,23 @@ IOReportDevice:
 repeat_match_bus_driver_mdd:
 	cmp word [esi+MIOVDDO.BusType], ax
 	jz match_dd_class_mdd
-	jmp Match_Next_Driver
+	jmp match_next_driver
 match_dd_class_mdd:
 	cmp edx, [esi+MIOVDDO.DeviceClass]
 	jz device_driver_match_mdd
 match_next_driver:
 	add esi, sizeof.KERNEL_DEVICE_DRIVER_OBJECT
-	jmp repeat_match_bus_driver_mdd
+	loop repeat_match_bus_driver_mdd
+	pop ecx
+	pop edx ; restore parent bus device object
+	mov eax, -1
+	ret
 ;****************************
 device_driver_match_mdd:
 	pop ecx
-	pop edx	; restore parent bus device object
+	pop edx ; restore parent bus device object
 	mov ebx, esi
-	mov eax, [esi+MIOVDD.AddDevice]
-	call eax
-	
+	mov eax, [esi+MIOVDDO.AddDevice]
+	call eax	;return device object
 	ret
 ;==============================================================================
