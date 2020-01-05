@@ -258,9 +258,7 @@ sai_printstring_32:
 ;==============================================================================
 ;       scroll up one linw of the video buffer
 ;  scroll screen up
-
 Scrollup80x25:
-
         push eax
         push ecx
         push edi
@@ -281,7 +279,6 @@ Scrollup80x25:
         pop ecx
         pop eax
         ret
-
 ;==============================================================================
 ;               jump to next line
 NewLine80x25:
@@ -291,7 +288,6 @@ NewLine80x25:
         ret
 
 ;==============================================================================
-
 
 SetCharColor80x25:
 
@@ -315,55 +311,40 @@ BackSpacetty80x25:
        jz   BackSpace80x25_return_page_32
 
 BackSpacetty80x25_continue_32:
-
        mov al,0
        mov dh,[LDR_cursorpsr]
        mov dl,[LDR_cursorpsc]
-
        call PutChar80x25
-
        dec byte [LDR_cursorpsc]
-
        call SetCursor80x25
-
        pop edi
        pop edx
        pop eax
        pop esi
        ret
-
 BackSpace80x25_return_line_32:
-
        mov al,0
        mov dh,[LDR_cursorpsr]
        mov dl,[LDR_cursorpsc]
-
        call PutChar80x25
-
        dec byte [LDR_cursorpsr]
        mov byte [LDR_cursorpsc],79
        call SetCursor80x25
-
        pop edi
        pop edx
        pop eax
        pop esi
        ret
-
 BackSpace80x25_return_page_32:
 
         cmp byte [LDR_cursorpsc],0
         jnz BackSpacetty80x25_continue_32
-
         mov byte [LDR_cursorpsc],0
         mov byte [LDR_cursorpsr],0
-
         call SetCursor80x25
-
         pop edi
         pop edx
         pop eax
         pop esi
         ret
-
 ;==============================================================================

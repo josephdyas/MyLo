@@ -150,6 +150,7 @@ exit_alloc_driver_object:
 	ret
 ;==============================================================================
 AllocDeviceObject: 
+	push ebx edx ecx esi
 	lea esi, [gKernelDeviceObjectBitmap]
 	lodsd
 	xor ecx,ecx
@@ -183,6 +184,7 @@ return_device_object:
 no_device_object:
 	mov eax, -1
 exit_alloc_device_object:
+	pop esi ecx edx ebx
 	ret
 ;==============================================================================
 ; Alloc and return a Device Object
@@ -206,11 +208,33 @@ IODeviceControl:
 
 ; ebx = Bus, Device, Function/Interface, BusType
 ; edx = RevisionID,ProgIF,SubClass,ClassCode
-; ecx = VendorID, DeviceID
+; ecx = DeviceID, VendorID
 ; esi = Parent Bus Device Object
 IOReportDevice:	
+	push ebx
 	push esi
 	push ecx
+	
+			;DEBUG
+			; Show the Device Identification Code for each device reported to IOManger
+			push edx
+			mov esi, mylo_debug_msg+33
+			mov eax, ecx
+			call ConvertHexWord
+			mov esi, mylo_debug_msg+50
+			mov eax, ecx
+			shr eax, 16
+			call ConvertHexWord
+			mov ebx,mylo_debug_msg
+			call PrintK
+			
+			pop edx
+			mov ecx, [esp]
+			mov esi, [esp+4]
+			mov ebx, [esp+8]
+			
+			;DEBUG
+			
 	mov ecx, [gKDriverOPsize]
 	movzx eax, bl
 	mov esi, [gKernelDriverObjectPool]
@@ -233,10 +257,12 @@ match_next_driver:
 	ret
 ;****************************
 device_driver_match_mdd:
-	pop ecx
-	pop edx ; restore parent bus device object
-	mov ebx, esi
-	mov eax, [esi+MIOVDDO.AddDevice]
-	call eax	;return device object
+	pop ecx			; DeviceID, DeviceVendor
+	pop edx 		; Parent Bus Device Object
+	mov ebx, esi	; Device Driver Object
+	pop esi 		; Bus, Device, Function/Interface
+	shr esi, 8
+	mov eax, [ebx+MIOVDDO.AddDevice]
+	call eax	;return device object or error code
 	ret
 ;==============================================================================

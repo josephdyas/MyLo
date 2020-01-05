@@ -34,21 +34,22 @@ strputdword_32 db '0xXXXXXXXX ',0
 ;==============================================================================
 ; ebx = number to be displayed
 PrintDword:
-	push esi edi
+	push ebx edx ecx esi edi
 	mov esi,strprintdword_32+2
 	mov eax, ebx
 	call ConvertHexDword
 	mov esi,strprintdword_32
 	call Putstty80x25
-	pop edi esi
+	pop edi esi ecx edx ebx
 	ret
 PrintWord:
-	push esi edi
+	push ebx edx ecx esi edi
 	mov esi,strprintword_32+2
+	mov eax, ebx
 	call ConvertHexWord
 	mov esi,strprintword_32
 	call Putstty80x25
-	pop edi esi
+	pop edi esi ecx edx ebx
 	ret
 strprintword_32  db '0xXXXX',0dh,0
 strprintdword_32 db '0xXXXXXXXX',0dh,0

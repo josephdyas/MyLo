@@ -22,7 +22,6 @@ PCI_current_bus db 0
 ; Pci Driver Entry Point
 ; ebx = Driver Object
 EntryPoint_pci_driver:
-
 	mov [ebx+VDDO.AddDevice], PciDriver_AddDevice
 	mov [ebx+VDDO.RemoveDevice], PciDriver_RemoveDevice
 	mov [ebx+VDDO.IORoutine], PciDriver_IORoutine
@@ -31,7 +30,8 @@ EntryPoint_pci_driver:
 	mov word [ebx+VDDO.DeviceType], SD_PCI_BUS
 	mov dword [ebx+VDDO.DeviceClass], 00000006h
 	mov word [ebx+VDDO.BusType], SD_ROOT_BUS
-
+	xor eax,eax
+	mov dword [ebx+VDDO.ReferenceCount], eax
 	ret
 ;==================================================================
 ;
@@ -75,23 +75,44 @@ PciDriver_UnknowControlCode:
 ;==================================================================
 ; ebx = Driver Object
 ; edx = Parent Bus Device Object
-; ecx = Bus, Device, Function/Interface
+; ecx = DeviceId, DeviceVendor
+; esi = Bus, Device, Function/Interface
 ; eax <= DeviceObject
 PciDriver_AddDevice:
-	
+
+	push esi
+; Checks if already exist a device object
+;------------->
+	mov esi, [ebx+VDDO.DeviceObject]
+	jmp PciDriver_AddDevice_test_search_device
+PciDriver_AddDevice_search_device:
+	cmp dword [esi+VDO.DeviceId], ecx
+	jz PciDriver_AddDevice_device_exist
+	mov esi, [esi+VDO.NextDevice]
+PciDriver_AddDevice_test_search_device:
+	test esi,esi
+	jnz PciDriver_AddDevice_search_device
+;-------------<
+	pop esi
 	call IOCreateDevice
 	mov edi, eax
+	
 ; fill the Device Object
 	mov word [edi+VDO.DeviceType], SD_PCI_HOST_BRIDGE
 	mov word [edi+VDO.BusType], SD_ROOT_BUS
 	mov dword [edi+VDO.DriverObject], ebx
 	mov dword [edi+VDO.DeviceParent], edx
-	mov dword [edi+VDO.Address], ecx
+	mov dword [edi+VDO.DeviceId], ecx
+	mov dword [edi+VDO.Address], esi
 ; attach the new device to Driver device list
 	mov eax, [ebx+VDDO.DeviceObject]	; last device assigned
 	mov [edi+VDO.NextDevice], eax
 	mov [ebx+VDDO.DeviceObject], edi
-	mov eax, edi
+	inc dword [ebx+VDDO.ReferenceCount]
+	mov eax,edi
+	ret
+PciDriver_AddDevice_device_exist:
+	mov eax, -1
 	ret
 ;==================================================================
 ; ebx = Driver Object

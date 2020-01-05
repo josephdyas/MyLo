@@ -73,6 +73,6 @@ keyboard dd 0
 kiom_root_bus_driver_not_found db 'Root Bus Driver missing!',0dh,0
 kiom_root_bus_pci_host_not_found db 'Pci Host Controller not Found!',0dh,0
 kiom_root_bus_pci_report_error db 'Error to Report PCI Host Controller!',0dh,0
-mylo_debug_msg db 'Debug PCI PciDriver_HInitDevice OK',0dh,0
+mylo_debug_msg db 'IOReporteDevice: DeviceVendor: 0xXXXX DeviceId: 0xXXXX',0dh,0 ; Offset DeviceID- 33: DeviceVendor -50
 
 ;##############################################################################

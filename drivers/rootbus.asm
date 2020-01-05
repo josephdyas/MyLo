@@ -171,7 +171,7 @@ exit_root_bus_get_pci:
 	mov ecx, dword [edi+VPCI_H1.VendorID]
 	xor esi, esi	; empty Parent Device Object (Root Bus)
 	call IOReportDevice
-	test eax, eax
+	test eax,eax
 	js root_bus_driver_pci_report_error
 	mov ebx, eax
 	mov edx, SD_SYSTEM_DEVICE_CONTROL+IO_CONTROL_COMMAND_INIT_DEVICE

@@ -50,6 +50,8 @@ struct KERNEL_DEVICE_OBJECT
 	DeviceParent	dd ?	; Device object representing the perante device 
 	NextDevice		dd ?	; Device object assigned by driver for each device that it manage.
 	Address 		dd ?	; Device Address (Bus/Device/Function)
-	Reserved		dd 10 dup(?)
+	DeviceVendor	dw ?
+	DeviceId		dw ?
+	Reserved		dd 09 dup(?)
 ends ; 64 bytes
 
