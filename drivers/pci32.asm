@@ -101,7 +101,7 @@ PciDriver_RemoveDevice:
 ;==================================================================
 PciDriver_ScanBus:
 
-	mov [PCI_current_bus], 1
+	mov [PCI_current_bus], 0
 	mov ebx, 2000h
 	call AllocMemory
 	push eax

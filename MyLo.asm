@@ -26,7 +26,7 @@ macro SLEEP
    hlt
 }
 
-include '..\MyOS\src\include\asm\struct.inc'
+include '..\SafiraOS\system\src\include\asm\struct.inc'
 include 'include\manager_memory.inc'
 include 'include\manager_io.inc'
 include 'include\drivers.inc'
