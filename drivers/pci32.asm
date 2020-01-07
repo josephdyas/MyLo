@@ -17,6 +17,8 @@ PCI_deviceid	db 0
 PCI_deviceCount dd 0
 PCI_current_bus db 0
 
+PCI_current_do	dd 0
+
 ;TODO: initialize the DeviceClass field
 ;==================================================================
 ; Pci Driver Entry Point
@@ -26,12 +28,12 @@ EntryPoint_pci_driver:
 	mov [ebx+VDDO.RemoveDevice], PciDriver_RemoveDevice
 	mov [ebx+VDDO.IORoutine], PciDriver_IORoutine
 	mov [ebx+VDDO.DeviceControl], PciDriver_DeviceControl
-	mov dword [ebx+VDDO.DeviceObject], 0
 	mov word [ebx+VDDO.DeviceType], SD_PCI_BUS
 	mov dword [ebx+VDDO.DeviceClass], 00000006h
 	mov word [ebx+VDDO.BusType], SD_ROOT_BUS
 	xor eax,eax
-	mov dword [ebx+VDDO.ReferenceCount], eax
+	mov [ebx+VDDO.ReferenceCount], eax
+	mov [ebx+VDDO.DeviceObject], eax
 	ret
 ;==================================================================
 ;
@@ -44,6 +46,7 @@ PciDriver_IORoutine:
 ; ecx = inpurt output buffer
 PciDriver_DeviceControl:
 
+	mov [PCI_current_do], ebx
 	mov eax, edx
 	and eax, 0ff000000h
 	cmp eax, SD_SYSTEM_DEVICE_CONTROL
@@ -81,12 +84,17 @@ PciDriver_UnknowControlCode:
 PciDriver_AddDevice:
 
 	push esi
+	;TODO: Remove this debug
+	DEBUG_IN
+	mov ebx, mylo_debug_pci_add_device
+	call PrintK
+	DEBUG_OUT
 ; Checks if already exist a device object
 ;------------->
 	mov esi, [ebx+VDDO.DeviceObject]
 	jmp PciDriver_AddDevice_test_search_device
 PciDriver_AddDevice_search_device:
-	cmp dword [esi+VDO.DeviceId], ecx
+	cmp dword [esi+VDO.DeviceVendor], ecx
 	jz PciDriver_AddDevice_device_exist
 	mov esi, [esi+VDO.NextDevice]
 PciDriver_AddDevice_test_search_device:
@@ -112,6 +120,8 @@ PciDriver_AddDevice_test_search_device:
 	mov eax,edi
 	ret
 PciDriver_AddDevice_device_exist:
+	mov esi, mylo_debug_device_exist
+	call PrintK
 	mov eax, -1
 	ret
 ;==================================================================
@@ -141,18 +151,21 @@ PciDriver_ScanBus:
 	pop esi	; device structure buffer
 	
 	; DEBUG -------
-	mov ebx, esi
-	mov edx, eax
-	call ShowPciDevInfo
-	ret
+	;push  eax ebx ecx edx esi edi
+	;mov ebx, esi
+	;mov edx, eax
+	;call ShowPciDevInfo
+	;ret
+	;pop edi esi edx ecx ebx eax
 	; DEBUG -------
 	mov ecx, eax
 	push dword 0	; Current PCI Header variable
 	push dword 0	; Current Pci Device index (returned by PciDriver_ScanPciBus)
+	push dword 0 	; Devices count
 	xor eax, eax
 ;<<****** report each device to the IO Manager
 repeat_report_devices:
-	push ecx	; save device counter
+	mov [esp], ecx
 	mov eax, [esp+4]
 	mov ebx, [edi+eax]
 	mov bl, SD_PCI_BUS	; bus type
@@ -172,14 +185,18 @@ repeat_report_devices:
 	xchg dh, dl
 ;VendorID, DeviceID
 	mov ecx, dword [esi+eax+VPCI_H.VendorID]
+	push esi edi	; save pci header buffer and index buffer
+	mov esi, [PCI_current_do]
 	call IOReportDevice
-	add dword [esp+4], 4
+	pop edi esi
+repeat_test_report_devices:
 	add dword [esp+8], 100h
-	pop ecx
+	add dword [esp+4], 4
+	mov ecx, [esp]
 	loop repeat_report_devices
 ;>>******
 PciDriver_ScanBus_exit:
-	add esp, 2*4	; restore stack
+	add esp, 3*4	; restore stack
 	ret
 ; =================================================================
 ; Scan the PCI bus searching for devices

@@ -232,7 +232,6 @@ IOReportDevice:
 			mov ecx, [esp]
 			mov esi, [esp+4]
 			mov ebx, [esp+8]
-			
 			;DEBUG
 			
 	mov ecx, [gKDriverOPsize]
@@ -240,7 +239,7 @@ IOReportDevice:
 	mov esi, [gKernelDriverObjectPool]
 	and edx, 00ffffffh ; Filter RevisionID, need to match Device Driver Class field
 ; esi = Driver Object address
-;****************************
+;**************************>>
 repeat_match_bus_driver_mdd:
 	cmp word [esi+MIOVDDO.BusType], ax
 	jz match_dd_class_mdd
@@ -251,11 +250,13 @@ match_dd_class_mdd:
 match_next_driver:
 	add esi, sizeof.KERNEL_DEVICE_DRIVER_OBJECT
 	loop repeat_match_bus_driver_mdd
-	pop ecx
-	pop edx ; restore parent bus device object
+	add esp, 3*4
+	;TODO: remove debug message
+	mov esi, mylo_debug_drive_not_found
+	call PrintK
 	mov eax, -1
 	ret
-;****************************
+;**************************<<
 device_driver_match_mdd:
 	pop ecx			; DeviceID, DeviceVendor
 	pop edx 		; Parent Bus Device Object

@@ -26,6 +26,9 @@ macro SLEEP
    hlt
 }
 
+DEBUG_IN equ push eax ebx ecx edx esi edi
+DEBUG_OUT equ pop edi esi edx ecx ebx eax
+
 include '..\SafiraOS\system\src\include\asm\struct.inc'
 include 'include\manager_memory.inc'
 include 'include\manager_io.inc'
