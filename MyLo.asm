@@ -248,11 +248,11 @@ include 'api16.inc'
 use32
 align 4
 protected_mode_code:
-	call ClearScreen80x25
+	call ClearScreen80x25_def
 ;==============================================================================
 ; INITIALIZE IDT AND INTERRUPTS PROCEDURES
 
-	call InitializeInterruptSystem
+	call InitializeInterruptSystem_def
 	
 ;--------------------------------------
 ; set the timer counter
@@ -283,7 +283,7 @@ cpuid_3   equ  SYSTEM_INFO_BASE + 0x4c	  ;76
 cpuid_4   equ  SYSTEM_INFO_BASE + 0X5c
 
     mov  esi,boot_cpuid
-    call Putstty80x25
+    call Putstty80x25_def
 
     pushfd				 ;Save EFLAGS
     pushfd				 ;Store EFLAGS
@@ -297,7 +297,7 @@ cpuid_4   equ  SYSTEM_INFO_BASE + 0X5c
     jnz cpuidok
 
     mov esi,boot_cpuiderror
-    call Putstty80x25
+    call Putstty80x25_def
 dontcpuid:
     jmp StopSystem
 cpuidok:
@@ -325,9 +325,9 @@ get_cpuid_done:
       mov edi,boot_cpuidname+6	  ; cpu id name string
       rep movsb
       mov esi,boot_cpuidname
-      call Putstty80x25
+      call Putstty80x25_def
      ; mov esi, boot_cpuidExFunc
-     ; call Putstty80x25
+     ; call Putstty80x25_def
 ;-----------------------------
 ; Get CPU brand and max clock
 	mov esi, 0x80000002
@@ -346,29 +346,21 @@ repeat_get_cpu_brand:
 ;-----------------------------
 
 	mov esi,cpuid_brandString
-	call Putstty80x25
-	call NewLine80x25
+	call Putstty80x25_def
+	call NewLine80x25_def
 	
 ;==============================================================================
 ; INITIALIZE MEMORY MANAGMENT
 	mov ebx, G_BlockList
 	mov edx, 100000h/PF_SIZE ;Number of page frames for 1 Megabyte
 	mov ecx, 100000h
-	call InitializeBlockList
-	call InitializeMemoryManager
+	call InitializeBlockList_def
+	call InitializeMemoryManager_def
 ;==============================================================================
 ; INITIALIZE I/O MANAGMENT
-	call InitIOManager
+	call InitIOManager_def
 	test eax,eax
 	js StopSystem	; Stop system boot if -1
-;==============================================================================
-; DETECT PCI DEVICES
-	mov esi,boot_pcibus
-	;call Putstty80x25
-
-	mov esi,boot_devices
-	;call Putstty80x25
-	
 	jmp StopSystem
 ;==============================================================================
 ; SEARCH AND INITIALIZE EHCI HOST CONTROLLER
@@ -389,6 +381,7 @@ search_echi_host_controller:
 	mov esi, boot_searchehci
 	call Puts
 ;----------------------------
+;clear the EHCI DESCRIPTOR BUFFER
 	xor eax,eax
 	mov edi, gEhciDescriptorBuffer
 	mov ecx, sizeof.EHCI_DESCRIPTOR*2
@@ -408,7 +401,7 @@ sehci_while_do:
 ;--------------------------------------
 ; initialize the Host Controller
 	mov ebx, gEhciDescriptorBuffer
-	call AllocEhciDescriptor ; Descriptor Buffer
+	call AllocEhciDescriptor_def ; Descriptor Buffer
 	mov [ehcidescAddress], eax
 	mov edx,eax
 ;------------------
@@ -420,7 +413,7 @@ sehci_while_do:
 	mov eax, [ehcilastdevindex]
 	mov ecx, gPciDeviceIndex
 	mov ecx, [ecx+eax*4]
-	call EhciInit	; Ehci Config Space, Device Descriptor, pci config address (bus/dev/func/index)
+	call EhciDriver_InitDevice_def	; Ehci Config Space, Device Descriptor, pci config address (bus/dev/func/index)
 	test eax,eax
 	jnz ehci_init_error
 	inc byte [ehcicount]
@@ -433,7 +426,7 @@ sehci_while_do:
 	add ebx, eax
 sehci_while_test:
 	mov edx, 0x0020030C	  ; EHCI Class, SubClass and Version
-	call PciQueryDevice
+	call PciQueryDevice_def
 	cmp eax, -1
 	jne sehci_while_do
 ; end_while------------------
@@ -457,7 +450,7 @@ end virtual
 RunSystem:
 	call ClearScreen
 testsystem:
-	call SetCursorBegin
+	call SetCursorBegin_def
 	mov esi, gEhciDescriptorBuffer
 	mov eax, [esi+V_ehcidescriptor.pciConfigSpace]
 	jmp ehci_handle_while_test
@@ -466,16 +459,16 @@ ehci_handle_do:
 	push esi
 	mov eax, [esi+V_ehcidescriptor.ehciOpReg]
 	mov eax, [eax+operacional2.command]
-	call PrintDword
+	call PrintDword_def
 	mov eax, [esi+V_ehcidescriptor.ehciOpReg]
 	mov eax, [eax+operacional2.status]
-	call PrintDword
+	call PrintDword_def
 	mov eax, [esi+V_ehcidescriptor.ehciOpReg]
 	mov eax, [eax+operacional2.asynclistadd]
-	call PrintDword
-	call NewLine80x25
+	call PrintDword_def
+	call NewLine80x25_def
 	pop ebx
-	call EhciISR
+	call EhciISR_def
 	add esi, sizeof.EHCI_DESCRIPTOR
 	mov eax, [esi+V_ehcidescriptor.pciConfigSpace]
 ehci_handle_while_test:

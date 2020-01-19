@@ -57,7 +57,7 @@ struct EHCI_OPERACIONAL_REGISTER
 ends
 ; EHCI_DESCRIPTOR
 ; contain information for a Enhaced Host Controller. Each controller is
-; initialized with your own descriptor because one system can have many
+; initialized with your own descriptor because one system may have many
 ; controllers
 struct EHCI_DESCRIPTOR
         DescSize        dd sizeof.EHCI_DESCRIPTOR
@@ -69,32 +69,37 @@ struct EHCI_DESCRIPTOR
         ehciExCParamOffset   dd ?       ; Offest of EHCI extended Capabilities Param into PCI config space
         ehciOpReg       dd ?
         ehciframebuffer dd ?
-        ehciDefaultPipe dd ?
-        ehciDefaultTD   dd ?
+        ehciDefaultPipe dd ?	; Used to Initiliaze new devices.
+        ehciDefaultTD   dd ?	; used with default pipe to initiliaze devices
         ehciCpBuffer    dd ?    ; Control Pipe buffer
         ehciCtdBuffer   dd ?    ; Control Transfer Descriptor buffer
-        ehciddBuffer    dd ?
-        ehciCPipeBitmap dd ?
+        ehciddBuffer    dd ?	; Device Descriptor Buffer
+        ehciCPipeBitmap dd ?	; Pipe Bitmap
         ehciddBitmap    dd ?    ; Device Descriptor Bitmap
 ends ; 64 bytes
 
-; 92 bytes
-struct EHCI_TD
+struct EHCI_TD32
         NextTD                  dd ?
         AlternateNextTD         dd ?
         Token                   dd ?
         BufferPointers          dd 5 dup(?)
-        BufferPointersHigh      dd 5 dup(?)
-ends
+ends ;32 bytes
 
-; 108
+struct EHCI_TD64
+        NextTD                  dd ?
+        AlternateNextTD         dd ?
+        Token                   dd ?
+        BufferPointers          dd 5 dup(?)
+        BufferPointersHigh      dd 5 dup(?) ;for 64 bits
+ends ; 52 bytes
+
 struct EHCI_PIPE
         NextQH          dd ?
         Token           dd ?
         Flags           dd ?
         CurrentTD       dd ?
-        Overlay         EHCI_TD
-ends
+        Overlay         EHCI_TD32
+ends ;48 bytes 68 for EHCI_TD64
 
 struct SETUP_PACKET
  bmRequest              db ?
@@ -119,7 +124,7 @@ struct USB_DEVICE_DESCRIPTOR
  iProduct               db ?
  iSerialNumber          db ?
  bNumConfigurations     db ?
-ends
+ends ; 18 bytes
 
 struct USB_CONFIGURATION_DESCRIPTOR
  bLength                db ?

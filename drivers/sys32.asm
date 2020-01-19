@@ -16,7 +16,7 @@ virtual at 0
 	V_idtentry idt_entry32
 end virtual
 ;==============================================================================
-InitializeInterruptSystem:
+InitializeInterruptSystem_def:
 ;Routeirqs
 	cli
 ;icw1
@@ -303,9 +303,9 @@ GPF db 'General Protection Fault. error: ',0
 align 4
 sd:
 
-	call ClearScreen80x25
+	call ClearScreen80x25_def
 	mov ecx,GPF
-	call Putstty80x25
+	call Putstty80x25_def
 	cli
 	hlt
 	iretd
@@ -345,7 +345,7 @@ irq0:
 	jmp exit_timer_tick
 counttick:
 	mov dword [timerate], 10
-	call ShowTime
+	call ShowTime_def
 exit_timer_tick:
 ;******************************************
 ;SEND EOI
@@ -364,7 +364,7 @@ irq1:
 	mov byte [listrun], 1
 listruning:
 
-	;call DR_KeyboardISR		    ; kbd Driver
+	;call DR_KeyboardISR_def		    ; kbd Driver
 
 ;******************************************
 ;SEND EOI

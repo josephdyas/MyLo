@@ -22,10 +22,10 @@ root_bus_prev_device dd 0
 ; ebx = Driver Objetct
 EntryPoint_rootbus_driver:
 
-	mov dword [ebx+VDDO.AddDevice], RootBusDriver_AddDevice
-	mov [ebx+VDDO.IORoutine], RootBusDriver_IORoutine
-	mov [ebx+VDDO.DeviceControl], RootBusDriver_DeviceControl
-	mov [ebx+VDDO.RemoveDevice], RootBusDriver_RemoveDevice
+	mov dword [ebx+VDDO.AddDevice], RootBusDriver_AddDevice_def
+	mov [ebx+VDDO.IORoutine], RootBusDriver_IORoutine_def
+	mov [ebx+VDDO.DeviceControl], RootBusDriver_DeviceControl_def
+	mov [ebx+VDDO.RemoveDevice], RootBusDriver_RemoveDevice_def
 	mov dword [ebx+VDDO.DeviceObject], 0
 	mov word [ebx+VDDO.DeviceType], SD_SYSTEM_ROOT_BUS
 	mov word [ebx+VDDO.BusType], SD_ROOT_BUS
@@ -34,54 +34,59 @@ EntryPoint_rootbus_driver:
 ; ebx = Driver Object
 ; edx = Parent Bus Device Object
 ; ecx = Bus, Device, Function/Interface
-RootBusDriver_AddDevice:
+RootBusDriver_AddDevice_def:
 
 	ret
 ;==================================================================
 ; ebx = Driver Objetct
-RootBusDriver_RemoveDevice:
+RootBusDriver_RemoveDevice_def:
 
 	ret
 ;==================================================================
 ;
-RootBusDriver_IORoutine:
+RootBusDriver_IORoutine_def:
 
 
 ;==================================================================
 ; ebx = Device Object
 ; edx = Device Control Code
 ; ecx = inpurt output buffer
-RootBusDriver_DeviceControl:
 
+RootBusDriver_DeviceControl_def:
+	mov [PCI_current_do], ebx
 	mov eax, edx
 	and eax, 0ff000000h
-	cmp eax, SD_SYSTEM_DEVICE_CONTROL
-	je RootBusDriver_HSystemDeviceControl
-	cmp eax, SD_DEVICE_CONTROL
-	je RootBusDriver_HDevControl
+	cmp eax, SD_SYSTEM_DEVICE_COMMAND
+	je RootBusDriver_HSystemDeviceCommand
+	cmp eax, SD_USER_DEVICE_COMMAND
+	je RootBusDriver_HUserDevCommand
 	jmp RootBusDriver_UnknowControlCode
-RootBusDriver_HSystemDeviceControl:
+;--------------------------------------
+; SYSTEM DEVICE COMMAND
+RootBusDriver_HSystemDeviceCommand:
 	mov eax, edx
-	cmp al, IO_CONTROL_COMMAND_INIT_DEVICE
-	je RootBusDriver_HScanBus
+	cmp al, IOCC_INIT_DEVICE
+		jne PciDriver_HSystemDeviceCommand2
+		call RootBusDriver_ScanBus_def
+		xor eax, eax
+		ret
+RootBusDriver_HSystemDeviceCommand2:
 	jmp RootBusDriver_UnknowControlCode
+;------------------------------------------
+;USER DEVICE COMMAND
+RootBusDriver_HUserDevCommand:
 
-RootBusDriver_HDevControl:
-	mov eax, ebx
-	shr eax, 8
-	cmp al, 0
-; TODO
-	jmp RootBusDriver_UnknowControlCode
-RootBusDriver_HScanBus:
-	call RootBusDriver_ScanBus
-	xor eax,eax
-	ret
+
+	jmp RootBusDriver_UnknowControlCode	
+;------------------------------------------
+; UNKNOW COMMAND CODE
 RootBusDriver_UnknowControlCode:
 	mov eax, -1
 	ret
 ;==================================================================
 ; Search Main System buses and Devices
-RootBusDriver_ScanBus:
+RootBusDriver_ScanBus_def:
+	
 	xor edx,edx
 	or edx, 0x8000ff00
 	mov [root_bus_prev_device], 0fffffffh
@@ -148,7 +153,7 @@ root_bus_pciscanexitgetdata:
 root_bus_no_pci_host:
 	add esp, 4
 	mov ebx, kiom_root_bus_pci_host_not_found
-	call PrintK
+	call PrintK_def
 	mov eax, -1
 	jmp RootBusDriver_ScanBus_exit
 exit_root_bus_get_pci:	
@@ -169,17 +174,17 @@ exit_root_bus_get_pci:
 	xchg dh, dl
 ;VendorID, DeviceID
 	mov ecx, dword [edi+VPCI_H1.VendorID]
-	xor esi, esi	; empty Parent Device Object (Root Bus)
-	call IOReportDevice
+	xor esi, esi	; empty Parent Device Object (Root Bus)	
+	call IOReportDevice_def	
 	test eax,eax
 	js root_bus_driver_pci_report_error
 	mov ebx, eax
-	mov edx, SD_SYSTEM_DEVICE_CONTROL+IO_CONTROL_COMMAND_INIT_DEVICE
-	call IODeviceControl
+	mov edx, SD_SYSTEM_DEVICE_COMMAND+IOCC_INIT_DEVICE
+	call IODeviceControl_def
 	jmp RootBusDriver_ScanBus_exit
 root_bus_driver_pci_report_error:
 	mov ebx, kiom_root_bus_pci_report_error
-	call PrintK
+	call PrintK_def
 	mov eax, -1
 RootBusDriver_ScanBus_exit:
 	ret

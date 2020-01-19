@@ -1,6 +1,6 @@
 ;##############################################################################
 ;				MEMORY MANAGER
-; Contain procedures for memory management on Mylo
+; Contain procedures for memory management on Sloader
 ; joseph dias, 2016@03.2019
 ;##############################################################################
 ; Exported functions
@@ -18,19 +18,19 @@ end virtual
 ;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 G_BlockDescriptor BLOCK_DESCRIPTOR
 
-InitializeMemoryManager:
+InitializeMemoryManager_def:
 
 	mov [G_BlockDescriptor.Size], 1000h
 	mov edx, G_BlockList
 	mov ebx, G_BlockDescriptor
-	call AllocPages
+	call AllocPages_def
 	mov edi, [G_BlockDescriptor.Address]
 	xor eax,eax
 	mov ecx, 1000h/4
 	rep stosd
 	ret
 ;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-AllocBlockDescriptor:
+AllocBlockDescriptor_def:
 	mov ecx, [G_BlockDescriptor.Size]
 	shr ecx, 3
 	mov esi, [G_BlockDescriptor.Address]
@@ -50,10 +50,10 @@ block_descriptor_found:
 	ret	
 ;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ; ebx = Size in bytes
-AllocMemory:
+AllocMemory_def:
 	push esi edi
 	push ebx
-	call AllocBlockDescriptor
+	call AllocBlockDescriptor_def
 	cmp eax, -1
 	je alloc_memory_error
 	pop ebx
@@ -61,7 +61,7 @@ AllocMemory:
 	mov edx, G_BlockList
 	mov ebx, eax
 	mov esi, eax
-	call AllocPages
+	call AllocPages_def
 	mov eax, [esi+VBD.Address]
 	jmp alloc_memory_exit
 alloc_memory_error:
@@ -76,7 +76,7 @@ alloc_memory_exit:
 Lblocklist dd 0
 Lpfn_count dd 0
 align 32
-InitializeBlockList:	 
+InitializeBlockList_def:	 
 ;===========================================================================
 ; initialize physical memory block list
 
@@ -152,7 +152,7 @@ exit_set_free_blocks:
 ; alloc a number of pyhical pages from	block allocator
 ; ebx = Address of a block descriptor
 ; edx = Address of the blocklist
-AllocPages: ; Block_descriptor, address of the blocklist
+AllocPages_def: ; Block_descriptor, address of the blocklist
 	push esi edi
 
 	xor eax,eax

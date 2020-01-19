@@ -24,10 +24,10 @@ PCI_current_do	dd 0
 ; Pci Driver Entry Point
 ; ebx = Driver Object
 EntryPoint_pci_driver:
-	mov [ebx+VDDO.AddDevice], PciDriver_AddDevice
-	mov [ebx+VDDO.RemoveDevice], PciDriver_RemoveDevice
-	mov [ebx+VDDO.IORoutine], PciDriver_IORoutine
-	mov [ebx+VDDO.DeviceControl], PciDriver_DeviceControl
+	mov [ebx+VDDO.AddDevice], PciDriver_AddDevice_def
+	mov [ebx+VDDO.RemoveDevice], PciDriver_RemoveDevice_def
+	mov [ebx+VDDO.IORoutine], PciDriver_IORoutine_def
+	mov [ebx+VDDO.DeviceControl], PciDriver_DeviceControl_def
 	mov word [ebx+VDDO.DeviceType], SD_PCI_BUS
 	mov dword [ebx+VDDO.DeviceClass], 00000006h
 	mov word [ebx+VDDO.BusType], SD_ROOT_BUS
@@ -37,58 +37,69 @@ EntryPoint_pci_driver:
 	ret
 ;==================================================================
 ;
-PciDriver_IORoutine:
+PciDriver_IORoutine_def:
 
 
 ;==================================================================
 ; ebx = Device Object
 ; edx = Device Control Code
-; ecx = inpurt output buffer
-PciDriver_DeviceControl:
-
+; ecx = IO buffer
+; esi = Aditional information
+PciDriver_DeviceControl_def:
 	mov [PCI_current_do], ebx
 	mov eax, edx
 	and eax, 0ff000000h
-	cmp eax, SD_SYSTEM_DEVICE_CONTROL
-	je PciDriver_HSystemDeviceControl
-	cmp eax, SD_DEVICE_CONTROL
-	je PciDriver_HDevControl
-	jmp PciDriver_UnknowControlCode
-PciDriver_HSystemDeviceControl:
+	cmp eax, SD_USER_DEVICE_COMMAND
+	je PciDriver_HUserDevCommand
+	cmp eax, SD_SYSTEM_DEVICE_COMMAND
+	je PciDriver_HSystemDeviceCommand
+	jmp PciDriver_UnknowCommandCode
+;----------------------------------
+; SYSTEM DEVICE COMMAND
+PciDriver_HSystemDeviceCommand:
 	mov eax, edx
-	cmp al, IO_CONTROL_COMMAND_INIT_DEVICE
-	je PciDriver_HInitDevice
-	cmp al, IO_CONTROL_COMMAND_SCAN_BUS
-	je PciDriver_HScanBus
-	jmp PciDriver_UnknowControlCode
-PciDriver_HInitDevice:
-	call PciDriver_ScanBus
-	xor eax, eax
-	ret
-PciDriver_HDevControl:
-	mov eax, ebx
-	shr eax, 8
-	cmp al, 0
-	jmp PciDriver_UnknowControlCode
-PciDriver_HScanBus:
-
-PciDriver_UnknowControlCode:
+	cmp al, IOCC_INIT_DEVICE
+		jne PciDriver_HSystemDeviceCommand2
+		call PciDriver_ScanBus_def
+		xor eax, eax
+		ret
+PciDriver_HSystemDeviceCommand2:
+	jmp PciDriver_UnknowIOCommandCode
+;------------------------------------------
+;USER DEVICE COMMAND
+PciDriver_HUserDevCommand:
+	mov eax, edx
+	cmp al, IOC_READ_CONFIGSPACE
+	jne PciDriver_HUserDevCommand2
+		mov ebx, ecx ; BufferAddress
+		mov edx, esi ; Device Address
+		call PciDriver_ReadDeviceConfigSpace_def
+		ret
+PciDriver_HUserDevCommand2:
+	jmp PciDriver_UnknowIOCommandCode
+;------------------------------------------
+; UNKNOW COMMAND CODE
+PciDriver_UnknowIOCommandCode:
+	mov ebx,Error_no_io_command_code
+	call  PrintK_def
 	mov eax, -1
 	ret
+PciDriver_UnknowCommandCode:
+	mov ebx,Error_no_command_code
+	call  PrintK_def
+	mov eax, -1
+	ret
+Error_no_command_code db 'Undefined System Command code',13,0
+Error_no_io_command_code db 'Undefined IO Command code',13,0
+	
 ;==================================================================
 ; ebx = Driver Object
 ; edx = Parent Bus Device Object
 ; ecx = DeviceId, DeviceVendor
-; esi = Bus, Device, Function/Interface
+; esi = Bus/Device/Function|Interface/0
 ; eax <= DeviceObject
-PciDriver_AddDevice:
-
+PciDriver_AddDevice_def:
 	push esi
-	;TODO: Remove this debug
-	DEBUG_IN
-	mov ebx, mylo_debug_pci_add_device
-	call PrintK
-	DEBUG_OUT
 ; Checks if already exist a device object
 ;------------->
 	mov esi, [ebx+VDDO.DeviceObject]
@@ -102,16 +113,15 @@ PciDriver_AddDevice_test_search_device:
 	jnz PciDriver_AddDevice_search_device
 ;-------------<
 	pop esi
-	call IOCreateDevice
+	call IOCreateDevice_def
 	mov edi, eax
-	
 ; fill the Device Object
 	mov word [edi+VDO.DeviceType], SD_PCI_HOST_BRIDGE
 	mov word [edi+VDO.BusType], SD_ROOT_BUS
 	mov dword [edi+VDO.DriverObject], ebx
 	mov dword [edi+VDO.DeviceParent], edx
 	mov dword [edi+VDO.DeviceId], ecx
-	mov dword [edi+VDO.Address], esi
+	mov dword [edi+VDO.Address], esi	; saved as SLoader PCI Device Address - See Pci Header File
 ; attach the new device to Driver device list
 	mov eax, [ebx+VDDO.DeviceObject]	; last device assigned
 	mov [edi+VDO.NextDevice], eax
@@ -121,20 +131,27 @@ PciDriver_AddDevice_test_search_device:
 	ret
 PciDriver_AddDevice_device_exist:
 	mov esi, mylo_debug_device_exist
-	call PrintK
+	call PrintK_def
 	mov eax, -1
 	ret
 ;==================================================================
 ; ebx = Driver Object
-PciDriver_RemoveDevice:
+PciDriver_RemoveDevice_def:
 
 	ret
 ;==================================================================
-PciDriver_ScanBus:
-
+;	ebx = BufferAddress;
+;	edx = Device Address
+;	ecx = IO Buffer
+PciDriver_ReadDeviceConfigSpace_def:
+	mov ebx, [ecx]
+	call PrintDword_def
+	ret
+;==================================================================
+PciDriver_ScanBus_def:
 	mov [PCI_current_bus], 0
 	mov ebx, 2000h
-	call AllocMemory
+	call AllocMemory_def
 	push eax
 	mov edi, eax
 	mov edx, eax
@@ -146,18 +163,10 @@ PciDriver_ScanBus:
 	add edx, 2000h-400h
 	push edx
 	movzx ecx, byte [PCI_current_bus]
-	call PciDriver_ScanPciBus
+	call PciDriver_ScanPciBus_def
 	pop edi	; device index buffer
 	pop esi	; device structure buffer
 	
-	; DEBUG -------
-	;push  eax ebx ecx edx esi edi
-	;mov ebx, esi
-	;mov edx, eax
-	;call ShowPciDevInfo
-	;ret
-	;pop edi esi edx ecx ebx eax
-	; DEBUG -------
 	mov ecx, eax
 	push dword 0	; Current PCI Header variable
 	push dword 0	; Current Pci Device index (returned by PciDriver_ScanPciBus)
@@ -187,9 +196,14 @@ repeat_report_devices:
 	mov ecx, dword [esi+eax+VPCI_H.VendorID]
 	push esi edi	; save pci header buffer and index buffer
 	mov esi, [PCI_current_do]
-	call IOReportDevice
-	pop edi esi
+	call IOReportDevice_def
+	test eax,eax
+	js repeat_test_report_devices
+	mov ebx, eax
+	mov edx, SD_SYSTEM_DEVICE_COMMAND+IOCC_INIT_DEVICE
+	call IODeviceControl_def	
 repeat_test_report_devices:
+	pop edi esi
 	add dword [esp+8], 100h
 	add dword [esp+4], 4
 	mov ecx, [esp]
@@ -205,7 +219,7 @@ PciDriver_ScanBus_exit:
 ; ecx = Bus Number
 align 4
 
-PciDriver_ScanPciBus:
+PciDriver_ScanPciBus_def:
 
 	push esi edi
 
@@ -253,7 +267,7 @@ pciscanloop:
 			jmp dataloop
 	  ;****************************
 	    exitdataloop:
-; convert the PCI device address to mylo pci device address
+; convert the PCI device address to mylo pci device address -  See Pci header file
 	    mov ebx,ecx
 	    and ecx,PCI_BUS_MASK
 	    mov eax,ecx ; Bus number
@@ -293,7 +307,7 @@ align 4
 ;	DL  = Register number (0-15)
 ; OUT:	EAX = Register information
 ;	All other registers preserved
-PciReadReg32:
+PciReadReg32_def:
 
 	shl ebx, 16			; Move Bus number to bits 23 - 16
 	shl ecx, 8			; Move Device/Slot/Fuction number to bits 15 - 8
@@ -313,7 +327,7 @@ PciReadReg32:
 ; ebx = PCI Device address dd 0|0000000|00000000|00000|000|000000|00b
 ;			                  / \     / \      / \   / \ / \	/ \
 ;			                 E	  Res	  Bus	  Dev	F    Reg    0
-PciReadRegB:
+PciReadRegB_def:
 
 	or ebx, 0x80000000		; Set bit 31
 	mov eax, ebx
@@ -332,7 +346,7 @@ PciReadRegB:
 ; ebx = PCI Device address dd 0|0000000|00000000|00000|000|000000|00b
 ;			      / \     / \      / \   / \ / \	/ \
 ;			     E	  Res	  Bus	  Dev	F    Reg    0
-PciReadRegD:
+PciReadRegD_def:
 
 	or ebx, 080000000h		; Set bit 31
 	mov eax, ebx
@@ -345,7 +359,7 @@ PciReadRegD:
 ;==================================================================
 ; ebx = PCI Device address
 ; edx = data
-PciWriteRegB:
+PciWriteRegB_def:
 	push edx
 	or ebx, 080000000h		; Set bit 31
 	mov eax, ebx
@@ -360,7 +374,7 @@ PciWriteRegB:
 
 	ret
 ;------------------------------------------------------------------
-PciWriteRegW:
+PciWriteRegW_def:
 	push edx
 	or ebx, 080000000h		; Set bit 31
 	mov eax, ebx
@@ -376,7 +390,7 @@ PciWriteRegW:
 ;==================================================================
 ; ebx = PCI Device address
 ; edx = data
-PciWriteRegD:
+PciWriteRegD_def:
 	push edx
 	or ebx, 0x80000000		; Set bit 31
 	mov eax, ebx
@@ -387,7 +401,7 @@ PciWriteRegD:
 	out dx, eax
 	ret
 ;==================================================================
-InitPCI:
+InitPCI_def:
 	xor eax, eax; 0x80000000		; Bit 31 set for 'Enabled'
 	bts eax, 31
 	mov ebx, eax
@@ -409,7 +423,7 @@ virtual at 0
 	pci32_pciehci PCI_HEADER_TYPE_0
 end virtual
 
-PciQueryDevice:
+PciQueryDevice_def:
 
 	push esi
 	push edi
@@ -457,8 +471,9 @@ pqdc_exit:
 	pop esi
 	ret
 ;==================================================================
+; convert the MyLo Pci Device Address to Pci device Address.
 ; ebx =: bxh = bus, bxl = device, bh = func, bl = index
-MakePciAddress:
+MakePciAddress_def:
 
 	shr ebx, 8
 	mov eax, ebx

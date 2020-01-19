@@ -12,9 +12,9 @@
 ; Putstty80x25
 ; Scrollup80x25
 
-Puts = Putstty80x25
-NewLine = NewLine80x25
-ClearScreen = ClearScreen80x25
+Puts = Putstty80x25_def
+NewLine = NewLine80x25_def
+ClearScreen = ClearScreen80x25_def
 
 
 ;##############################################################################
@@ -27,22 +27,22 @@ char_color     db 0x07
 FRAME_BUFFER   = 0
 
 ;==============================================================================
-GetCursorPosition:
+GetCursorPosition_def:
         mov al, [LDR_cursorpsc]
         mov ah, [LDR_cursorpsr]
         ret
 ;==============================================================================
-SetCursorPosition:
+SetCursorPosition_def:
         mov [LDR_cursorpsc], al
         mov [LDR_cursorpsr], ah
         ret
-SetCursorBegin:
+SetCursorBegin_def:
         mov byte [LDR_cursorpsc], 00h
         mov byte [LDR_cursorpsr], 02h
         ret
 ;==============================================================================
 ; interrupt handle for keyboard management
-DR_KeyboardISR:
+DR_KeyboardISR_def:
 
 
         ret
@@ -51,7 +51,7 @@ DR_KeyboardISR:
 ;==============================================================================
 ; clear the display text buffer
 
-ClearScreen80x25:
+ClearScreen80x25_def:
 
        push eax
        push ecx
@@ -70,7 +70,7 @@ ClearScreen80x25:
        ret
 ;==============================================================================
 ; set a cursor character "_" on current cursor position
-SetCursor80x25:
+SetCursor80x25_def:
 
         push ecx
         push ebx
@@ -112,7 +112,7 @@ next_line_printstring2_SetCursor80x25:
 
 next_pageprintstring2_SetCursor80x25:
 
-        call Scrollup80x25
+        call Scrollup80x25_def
         mov byte [LDR_cursorpsc],0
         mov byte [LDR_cursorpsr],24
         jmp repeat_SetCursor80x25
@@ -125,7 +125,7 @@ next_pageprintstring2_SetCursor80x25:
 ; dh = row
 ; dl = colunn
 
-PutChar80x25:
+PutChar80x25_def:
         push ecx
         push ebx
 
@@ -149,7 +149,7 @@ PutChar80x25:
 ; put a character on cursor position in TTY mode
 ; al = character to be printed
 
-PutChartty80x25:
+PutChartty80x25_def:
 
         push esi
         push edi
@@ -167,11 +167,11 @@ print_repeat_printstring2:
         mov dl,[LDR_cursorpsc]
         mov dh,[LDR_cursorpsr]
 
-        call PutChar80x25
+        call PutChar80x25_def
 
         inc [LDR_cursorpsc]
 
-        call SetCursor80x25
+        call SetCursor80x25_def
 
         jmp sai_printstring2
 
@@ -189,7 +189,7 @@ new_line_printstring2:
         jmp print_repeat_printstring2
 next_pageprintstring2:
 
-        call Scrollup80x25
+        call Scrollup80x25_def
         mov byte [LDR_cursorpsc],0
         mov byte [LDR_cursorpsr],24
         jmp print_repeat_printstring2
@@ -204,9 +204,9 @@ sai_printstring2:
 ;==============================================================================
 ;               print a string at current cursor position in TTY mode
 ; esi = terminating null string
-PrintK:
+PrintK_def:
 	mov esi, ebx
-Putstty80x25:
+Putstty80x25_def:
 
         push esi edi ebx ecx
 
@@ -227,7 +227,7 @@ print_repeat_printstring_return_32:
         mov dl,[LDR_cursorpsc]
         mov dh,[LDR_cursorpsr]
 
-        call PutChar80x25
+        call PutChar80x25_def
         inc byte [LDR_cursorpsc]
 
         jmp print_repeat_printstring_32
@@ -246,7 +246,7 @@ new_line_printstring_32:
         jmp print_repeat_printstring_32
 next_pageprintstring_32:
 
-        call Scrollup80x25
+        call Scrollup80x25_def
         mov byte [LDR_cursorpsc],0
         mov byte [LDR_cursorpsr],24
         jmp print_repeat_printstring_return_32
@@ -258,7 +258,7 @@ sai_printstring_32:
 ;==============================================================================
 ;       scroll up one linw of the video buffer
 ;  scroll screen up
-Scrollup80x25:
+Scrollup80x25_def:
         push eax
         push ecx
         push edi
@@ -281,7 +281,7 @@ Scrollup80x25:
         ret
 ;==============================================================================
 ;               jump to next line
-NewLine80x25:
+NewLine80x25_def:
 
         mov [LDR_cursorpsc],0
         inc [LDR_cursorpsr]
@@ -289,7 +289,7 @@ NewLine80x25:
 
 ;==============================================================================
 
-SetCharColor80x25:
+SetCharColor80x25_def:
 
         mov byte [char_color],al
         ret
@@ -298,7 +298,7 @@ SetCharColor80x25:
 ;==============================================================================
 ;          return one character on video buffer
 
-BackSpacetty80x25:
+BackSpacetty80x25_def:
 
        push esi
        push eax
@@ -314,9 +314,9 @@ BackSpacetty80x25_continue_32:
        mov al,0
        mov dh,[LDR_cursorpsr]
        mov dl,[LDR_cursorpsc]
-       call PutChar80x25
+       call PutChar80x25_def
        dec byte [LDR_cursorpsc]
-       call SetCursor80x25
+       call SetCursor80x25_def
        pop edi
        pop edx
        pop eax
@@ -326,10 +326,10 @@ BackSpace80x25_return_line_32:
        mov al,0
        mov dh,[LDR_cursorpsr]
        mov dl,[LDR_cursorpsc]
-       call PutChar80x25
+       call PutChar80x25_def
        dec byte [LDR_cursorpsr]
        mov byte [LDR_cursorpsc],79
-       call SetCursor80x25
+       call SetCursor80x25_def
        pop edi
        pop edx
        pop eax
@@ -341,7 +341,7 @@ BackSpace80x25_return_page_32:
         jnz BackSpacetty80x25_continue_32
         mov byte [LDR_cursorpsc],0
         mov byte [LDR_cursorpsr],0
-        call SetCursor80x25
+        call SetCursor80x25_def
         pop edi
         pop edx
         pop eax

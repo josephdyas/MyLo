@@ -155,13 +155,6 @@ idt_descriptor:
       dw  0x0000
 IDTE:
 ;#############################################################################
-;Enhanced Host Controller - EHCI and USB
-align 32
-getDeviceDescriptorCmd  db 80h,06h,00h,01h,00h,00h,12h,00h
-setDeviceAddressCmd     db 00h,05h,00h,00h,00h,00h,00h,00h
-
-gEhciDescriptorBuffer db sizeof.EHCI_DESCRIPTOR*8 dup(0)
-;#############################################################################
 ; Memory Management
 ; set the Block Chain address
 virtual at BLOCK_CHAIN_ADDRESS

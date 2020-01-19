@@ -2,12 +2,12 @@
 align 4
 counterTime dd 0
 
-ShowTime:
+ShowTime_def:
 	push edi esi ecx
 	mov esi,strprintdword_32_put
 	add esi,2
 	mov eax, [counterTime]
-	call ConvertHexDword
+	call ConvertHexDword_def
 	mov ecx, 10
 	mov esi,strprintdword_32_put
 	mov edi, 0b8000h+2
@@ -25,30 +25,30 @@ strprintdword_32_put db '0xXXXXXXXX'
 PutDword:
 	push esi edi
 	mov esi,strputdword_32+2
-	call ConvertHexDword
+	call ConvertHexDword_def
 	mov esi,strputdword_32
-	call Putstty80x25
+	call Putstty80x25_def
 	pop edi esi
 	ret
 strputdword_32 db '0xXXXXXXXX ',0
 ;==============================================================================
 ; ebx = number to be displayed
-PrintDword:
+PrintDword_def:
 	push ebx edx ecx esi edi
 	mov esi,strprintdword_32+2
 	mov eax, ebx
-	call ConvertHexDword
+	call ConvertHexDword_def
 	mov esi,strprintdword_32
-	call Putstty80x25
+	call Putstty80x25_def
 	pop edi esi ecx edx ebx
 	ret
-PrintWord:
+PrintWord_def:
 	push ebx edx ecx esi edi
 	mov esi,strprintword_32+2
 	mov eax, ebx
-	call ConvertHexWord
+	call ConvertHexWord_def
 	mov esi,strprintword_32
-	call Putstty80x25
+	call Putstty80x25_def
 	pop edi esi ecx edx ebx
 	ret
 strprintword_32  db '0xXXXX',0dh,0
@@ -56,7 +56,7 @@ strprintdword_32 db '0xXXXXXXXX',0dh,0
 ;==============================================================================
 ; esi = address of the buffer to receiv string
 ; eax = dword,word or byte to convert
-ConvertHexDword:
+ConvertHexDword_def:
 	push esi edi ebx ecx
 	mov edi,esi
 	add edi,7
@@ -64,7 +64,7 @@ ConvertHexDword:
 	mov ecx,8
 	cld					; decrement edi
 	jmp  repeat_converthexdword
-ConvertHexWord:
+ConvertHexWord_def:
 	push esi edi ebx ecx
 	mov edi,esi
 	add edi,3
@@ -72,7 +72,7 @@ ConvertHexWord:
 	mov ecx,4
 	cld		  ; decrement edi
 	jmp  repeat_converthexdword
-ConvertHexByte:
+ConvertHexByte_def:
 	push esi edi ebx ecx
 	mov edi,esi
 	add edi,1
@@ -98,7 +98,7 @@ hextable db '0123456789ABCDEF'
 ;============================================================================
 ;############################################################################
 ; esi = address of memory to show data
-DumpMemory:
+DumpMemory_def:
 ;--------------------------------------
       push edi esi ebx
       cld
@@ -112,13 +112,13 @@ DumpMemory:
       ;mov esi,[param]
       mov ecx,256
 ; convert the offset of the first 16 bytes
-      call NewLine80x25
+      call NewLine80x25_def
       mov  edx,ecx
       push esi
       mov eax,esi
       mov esi, dump_line
    ;   add esi,2
-      call ConvertHexDword
+      call ConvertHexDword_def
       pop ebx
       mov esi,ebx
       mov [dump_currentbyte],dump_byteslow
@@ -146,7 +146,7 @@ dump_continue1:
 ;------------------------------------
 	mov esi,[dump_currentbyte]
 	push ebx
-	call ConvertHexByte
+	call ConvertHexByte_def
 	pop ebx
 	inc ebx
 	mov esi,ebx
@@ -180,7 +180,7 @@ dump_continue2:
 ;------------------------------------
 	mov esi,[dump_currentbyte]
 	push ebx
-	call ConvertHexByte
+	call ConvertHexByte_def
 	pop ebx
 	inc ebx
 	mov esi,ebx
@@ -199,7 +199,7 @@ exit_repeat_dump_bytehigh:
       push edx
       push ebx
       mov esi,dump_line
-      call Putstty80x25
+      call Putstty80x25_def
       cld
       mov esi,dump_clear
       mov edi,dump_line
@@ -212,7 +212,7 @@ exit_repeat_dump_bytehigh:
       mov eax,esi
       mov esi, dump_line
     ;  add esi,2
-      call ConvertHexDword
+      call ConvertHexDword_def
       pop ebx
       mov esi,ebx
       mov [dump_currentchar],0
@@ -221,7 +221,7 @@ exit_repeat_dump_bytehigh:
       jmp repeat_dump_bytelow
 exit_dump:
       mov esi,dump_line
-      call Putstty80x25
+      call Putstty80x25_def
 exit_dump_error:
 	pop edi
       ret
@@ -245,45 +245,45 @@ dump_clearE:
 virtual at edi
 	pciconfigspace PCI_HEADER_TYPE_0
 end virtual
-ShowPciDevInfo:
+ShowPciDevInfo_def:
 	push esi edi ecx
 
 	mov edi, ebx
 	push edx
 	mov esi, boot_pcidevices
-	call Putstty80x25
+	call Putstty80x25_def
 	pop ecx
 loop_put_devices:
 	mov ebx, dword [edi]
 	mov ax, bx
 	mov esi, boot_deviceVendor+2	; VendorID
-	call ConvertHexWord
+	call ConvertHexWord_def
 	shr ebx, 16
 	mov ax, bx
 	mov esi, boot_deviceID+2    ; DeviceID
-	call ConvertHexWord
+	call ConvertHexWord_def
 	mov ebx, dword [pciconfigspace.RevisionID]
 	mov al, bl
 	mov esi, boot_deviceRev+2	; Revision
-	call ConvertHexByte
+	call ConvertHexByte_def
 	shr ebx,8
 	mov al, bl
 	mov esi, boot_deviceProgIF+2	 ; Programmer Interface
-	call ConvertHexByte
+	call ConvertHexByte_def
 	shr ebx,8
 	mov al, bl
 	mov esi, boot_deviceSubClass+2	   ; SubClass
-	call ConvertHexByte
+	call ConvertHexByte_def
 	shr ebx,8
 	mov al, bl
 	mov esi, boot_deviceClass+2	; Class Code
-	call ConvertHexByte
+	call ConvertHexByte_def
 	movzx eax, byte [pciconfigspace.InterruptLine]
 	mov esi, boot_deviceBar0+2
-	call ConvertHexByte
+	call ConvertHexByte_def
 
 	mov esi, boot_deviceID
-	call Putstty80x25
+	call Putstty80x25_def
 	add edi, 100h
 	loop loop_put_devices
 
@@ -293,41 +293,41 @@ loop_put_devices:
 ; ebx = Device Address Information buffer
 ; edx = Number Of Devices
 
-ShowPciAddressInfo:
+ShowPciAddressInfo_def:
 	push esi edi ecx
 
 	mov edi, ebx
 	push edx
 
 	mov esi, boot_pcidevices2
-	call Putstty80x25
+	call Putstty80x25_def
 	pop ecx
 loop_put_devices2:
 	mov ebx, dword [edi]
 	mov al, bl
 	mov esi, boot_deviceindex+4
-	call ConvertHexByte
+	call ConvertHexByte_def
 	shr ebx, 8
 	mov al, bl
 	mov esi, boot_deviceFunc+4
-	call ConvertHexByte
+	call ConvertHexByte_def
 	shr ebx, 8
 	mov al, bl
 	mov esi, boot_deviceDev+4
-	call ConvertHexByte
+	call ConvertHexByte_def
 	shr ebx, 8
 	mov al, bl
 	mov esi, boot_deviceBus+4
-	call ConvertHexByte
+	call ConvertHexByte_def
 	mov esi, boot_deviceindex
-	call Putstty80x25
+	call Putstty80x25_def
 	add edi, 4
 	loop loop_put_devices2
 	pop ecx edi esi
 	ret
 ;--------------------------------------
 ;===============================================================================
-ShowEhciConfig:
+ShowEhciConfig_def:
 
 
 	ret
@@ -339,26 +339,26 @@ virtual at edi
 	sqh_pipe EHCI_PIPE
 end virtual
 
-ShowQueueHead:
+ShowQueueHead_def:
 	push edi esi
 
 	mov edi, ebx
 
 	mov eax, [sqh_pipe.NextQH]
 	lea esi, [sqh_NextQH+10]
-	call ConvertHexDword
+	call ConvertHexDword_def
 	mov eax, [sqh_pipe.Token]
 	lea esi, [sqh_Token+9]
-	call ConvertHexDword
+	call ConvertHexDword_def
 	mov eax, [sqh_pipe.Flags]
 	lea esi, [sqh_Flags+9]
-	call ConvertHexDword
+	call ConvertHexDword_def
 	mov eax, [sqh_pipe.CurrentTD]
 	lea esi, [sqh_CurrentTD+9]
-	call ConvertHexDword
+	call ConvertHexDword_def
 	mov eax, [sqh_pipe.Overlay.NextTD]
 	lea esi, [sqh_Overlay+18]
-	call ConvertHexDword
+	call ConvertHexDword_def
 	mov esi, sqh_string
 	call Puts
 
@@ -376,23 +376,23 @@ sqh_Overlay		db 'Overlay.NextTD: 0x00000000',0dh,0
 ; Show the values in a Transfer Descritor
 ;	ebx = address of the Transfer Descritor
 virtual at edi
-	std_td EHCI_TD
+	std_td EHCI_TD32
 end virtual
 
-ShowTransferDescriptor:
+ShowTransferDescriptor_def:
 	push edi esi
 
 	mov edi, ebx
 
 	mov eax, [std_td.NextTD]
 	lea esi, [std_NextTD+10]
-	call ConvertHexDword
+	call ConvertHexDword_def
 	mov eax, [std_td.Token]
 	lea esi, [std_Token+9]
-	call ConvertHexDword
+	call ConvertHexDword_def
 	mov eax, [std_td.BufferPointers]
 	lea esi, [std_BufferPointers+10]
-	call ConvertHexDword
+	call ConvertHexDword_def
 
 	mov esi, std_string
 	call Puts

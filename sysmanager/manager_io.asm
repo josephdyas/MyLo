@@ -32,7 +32,7 @@ virtual at 0
 MIOVDO KERNEL_DEVICE_OBJECT
 end virtual
 ;==============================================================================
-InitIOManager:
+InitIOManager_def:
 ;clear the DriverObject bitmap
 	mov edi, gKernelDriverObjectBitmap
 	xor eax,eax
@@ -45,7 +45,7 @@ InitIOManager:
 	rep stosd
 ; alloc and clear a buffer to hold Driver's structures 
 	mov ebx, 2000h
-	call AllocMemory
+	call AllocMemory_def
 	mov [gKernelDriverObjectPool], eax
 	mov edi, eax
 	xor eax, eax
@@ -54,18 +54,18 @@ InitIOManager:
 	rep stosd
 ;allocate and clear a buffer to hold Devices's structures
 	mov ebx, 2000h
-	call AllocMemory
+	call AllocMemory_def
 	mov [gKernelDeviceObjectPool], eax
 	mov edi, eax
 	xor eax,eax
 	mov ecx, 2000h/64
 	mov [gKDeviceOPsize], ecx
 	rep stosd
-	call RegisterDrivers
-	call InitDeviceSystem
+	call RegisterDrivers_def
+	call InitDeviceSystem_def
 	ret
 ;==============================================================================
-InitDeviceSystem:
+InitDeviceSystem_def:
 ; Call the System Root Bus Driver to scan pci buses
 
 ;search for a Root Bus Driver
@@ -80,11 +80,11 @@ search_root_bus_driver:
 	loop search_root_bus_driver
 ;****<<
 	mov ebx, kiom_root_bus_driver_not_found
-	call PrintK
+	call PrintK_def
 	or eax, -1
 	jmp exit_InitDeviceSystem
 root_bus_driver_found:
-	mov edx, SD_SYSTEM_DEVICE_CONTROL+IO_CONTROL_COMMAND_INIT_DEVICE
+	mov edx, SD_SYSTEM_DEVICE_COMMAND+IOCC_INIT_DEVICE
 	mov eax, [esi+MIOVDDO.DeviceControl]
 	call eax
 
@@ -92,14 +92,14 @@ exit_InitDeviceSystem:
 	ret
 ;==============================================================================
 ; Register all Drivers from DriverList on System
-RegisterDrivers:
+RegisterDrivers_def:
 	lea esi, [gKernelDriverList]
 loop_load_drivers:
 	lodsd
 	test eax, eax
 	jz exit_register_drivers
 	push eax
-	call AllocDriverObject
+	call AllocDriverObject_def
 	mov ebx, eax
 	pop eax
 	mov [ebx], eax
@@ -111,7 +111,7 @@ loop_load_drivers:
 exit_register_drivers:
 	ret
 ;==============================================================================
-AllocDriverObject:
+AllocDriverObject_def:
 	push esi ecx
 	lea esi, [gKernelDriverObjectBitmap]
 	lodsd
@@ -149,7 +149,7 @@ exit_alloc_driver_object:
 	pop ecx esi
 	ret
 ;==============================================================================
-AllocDeviceObject: 
+AllocDeviceObject_def: 
 	push ebx edx ecx esi
 	lea esi, [gKernelDeviceObjectBitmap]
 	lodsd
@@ -189,16 +189,16 @@ exit_alloc_device_object:
 ;==============================================================================
 ; Alloc and return a Device Object
 ; eax <- DeviceObject
-IOCreateDevice:
+IOCreateDevice_def:
 	
-	call AllocDeviceObject
+	call AllocDeviceObject_def
 	ret
 ;==============================================================================
 ; Send a device control command
 ; ebx = Device Object
 ; edx = Control Code
 ; ecx = input/output buffer
-IODeviceControl:
+IODeviceControl_def:
 	mov eax, [ebx+MIOVDO.DriverObject]
 	mov eax, [eax+MIOVDDO.DeviceControl]
 	call eax
@@ -210,30 +210,12 @@ IODeviceControl:
 ; edx = RevisionID,ProgIF,SubClass,ClassCode
 ; ecx = DeviceID, VendorID
 ; esi = Parent Bus Device Object
-IOReportDevice:	
+IOReportDevice_def:	
+
 	push ebx
 	push esi
 	push ecx
 	
-			;DEBUG
-			; Show the Device Identification Code for each device reported to IOManger
-			push edx
-			mov esi, mylo_debug_msg+33
-			mov eax, ecx
-			call ConvertHexWord
-			mov esi, mylo_debug_msg+50
-			mov eax, ecx
-			shr eax, 16
-			call ConvertHexWord
-			mov ebx,mylo_debug_msg
-			call PrintK
-			
-			pop edx
-			mov ecx, [esp]
-			mov esi, [esp+4]
-			mov ebx, [esp+8]
-			;DEBUG
-			
 	mov ecx, [gKDriverOPsize]
 	movzx eax, bl
 	mov esi, [gKernelDriverObjectPool]
@@ -252,8 +234,11 @@ match_next_driver:
 	loop repeat_match_bus_driver_mdd
 	add esp, 3*4
 	;TODO: remove debug message
-	mov esi, mylo_debug_drive_not_found
-	call PrintK
+	push edx
+	mov ebx, mylo_debug_drive_not_found
+	call PrintK_def
+	pop ebx
+	call PrintDword_def
 	mov eax, -1
 	ret
 ;**************************<<
@@ -261,8 +246,8 @@ device_driver_match_mdd:
 	pop ecx			; DeviceID, DeviceVendor
 	pop edx 		; Parent Bus Device Object
 	mov ebx, esi	; Device Driver Object
-	pop esi 		; Bus, Device, Function/Interface
-	shr esi, 8
+	pop esi 		
+	and esi, 0ffffff00h ; Bus, Device, Function/Interface, 0
 	mov eax, [ebx+MIOVDDO.AddDevice]
 	call eax	;return device object or error code
 	ret

@@ -1,0 +1,18 @@
+02:50 05/01/2020
+
+	Adição do campo de DeviceID e Device Vendor na estrutura DeviceObject para permitir a verificação da existência de um objeto já criado para aquele dispositivo na função AddDevice do Driver quando chamado pelo IOReportDevice.
+
+11:10 07/01/2020
+
+	Alteração da constante SD_DEVICE_CONTROL para SD_USER_DEVICE_CONTROL no Sistema de Gerenciamento de Dispositivos para distinguir comandos de controle do sistema dos comandos de controle de usuario.
+
+12:43 07/01/2020
+
+	Driver PCI funcionando corretamente, escaneando o barramento e reportando os dispositivos encontrados para o IOManger.
+	Driver Ehci sendo chamado corretamente.
+
+00:22 19/01/2020
+	
+	A função de inicialização do Driver EHCI está senda chamada, falta implementar a função de leitura do PCI Config Space no driver PCI para que o Driver Ehci possa dar continuidade a inicialização do Controlador.
+
+PROJEÇÃO DE TAREFA: Escrever a inicialização do do Controlador EHCI e fazer a chamada do Driver Root Bus do Barramento USB. Obs. por questões de performance talves o código do Root Bus serja implementado junto ao Driver Ehci, uma vez que só existirá um Barramento Raiz por controlador. O Driver de Barramento Generico ( Como um Hub) será implementado separadamente ou será reaproveitado o Código do Root Bus.
