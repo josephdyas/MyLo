@@ -91,7 +91,7 @@ ends
 
 ;PCI Device address dd 0|0000000|00000000|00000|000|000000|00b
 ;	                   / \     / \      / \   / \ / \	 / \
-;                     E    Res     Bus     Dev   F   Reg    0
+;                     E    Res     Bus     Dev   F   Reg    0	
 ;E- Enable bit
 ;Res - Reserved - must be 0
 ;Bus - Bus Number: 0 up to 255
@@ -101,4 +101,4 @@ ends
 
 ; SLoader Device address 00000000|00000000|00000000|00000000b
 ;                        \      / \      / \      / \      /
-;							Bus     Device   Func     Index
+;                          Bus     Device   Func     Index

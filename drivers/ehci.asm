@@ -175,24 +175,25 @@ EhciDriver_InitDevice_def:
 	
 	mov ebx, 2000h
 	call AllocMemory_def
-	mov dword [edi+VDO.Reserved], eax
+	mov dword [edi+VDO.Reserved], eax		; buffer to hold ehci structures.
 	add eax, 1f00h
-	mov dword [edi+VDO.Reserved+4], eax
+	push edi
+	mov dword [edi+VDO.Reserved+4], eax	; buffer to hold Pci Config Space data for the current controller.
 	call AllocEhciDescriptor_def
-	mov dword [edi+VDO.Reserved+8], eax
+	mov dword [edi+VDO.Reserved+8], eax	; Ehci Descriptor
 	;Read Ehci Pci configuration Space
 	mov ebx, [edi+VDO.DeviceParent]
 	mov esi, [edi+VDO.Address]
 	mov edx, SD_USER_DEVICE_COMMAND+IOC_READ_CONFIGSPACE
 	mov ecx, [edi+VDO.Reserved+4]
-	mov dword [ecx], 0aabbccddh
 	call IODeviceControl_def
 	cmp eax, -1
 	je EhciDriver_Erro_Read_PciConfig
-	
+	pop edi
 	;DEBUG
-	mov ebx, test_message
-	call PrintK_def
+	mov ebx, [edi+VDO.Reserved+4]
+	mov ebx, [ebx]
+	call PrintDword_def
 	mov eax, -1
 	ret
 	test_message db 'test after Read Pci...',13,0

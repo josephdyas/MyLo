@@ -142,10 +142,41 @@ PciDriver_RemoveDevice_def:
 ;==================================================================
 ;	ebx = BufferAddress;
 ;	edx = Device Address
-;	ecx = IO Buffer
 PciDriver_ReadDeviceConfigSpace_def:
-	mov ebx, [ecx]
-	call PrintDword_def
+	push ebx
+	mov ebx, edx
+	;Convert Device Address to PCI Device Address
+	call MakePciAddress_def
+	mov ecx, eax
+	bts ecx, 31
+	pop edi
+	mov dx, PCI_CONFIG_ADDRESS
+	mov eax,ecx
+	out dx,eax
+	mov dx, PCI_CONFIG_DATA
+	in eax,dx
+	cmp eax,0xffffffff
+	jz rdcs_error_device_not_found
+	cld
+;copy PCI device space into a buffer
+	;****************************
+	rdcs_dataloop:
+		cmp  cl,PCI_BLOCKINFOSIZE
+		jae rdcs_exitdataloop
+		mov eax,ecx
+		mov dx,PCI_CONFIG_ADDRESS
+		out dx,eax
+		mov dx,PCI_CONFIG_DATA
+		insd
+		add cl,4 ; get four bytes from port and store in edi and increment edi
+		jmp rdcs_dataloop
+	;****************************
+	rdcs_exitdataloop:
+; convert the PCI device address to mylo pci device address -  See Pci header file
+	xor eax, eax
+	ret
+rdcs_error_device_not_found:
+	;mov eax, -1
 	ret
 ;==================================================================
 PciDriver_ScanBus_def:
@@ -474,7 +505,6 @@ pqdc_exit:
 ; convert the MyLo Pci Device Address to Pci device Address.
 ; ebx =: bxh = bus, bxl = device, bh = func, bl = index
 MakePciAddress_def:
-
 	shr ebx, 8
 	mov eax, ebx
 	shl bh, 3
