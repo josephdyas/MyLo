@@ -274,7 +274,7 @@ align 4
 ;#############################################################################
 ; Segment Not Present
 sb:
-      mov ax,0x0751
+      mov ax,0x0700+'A'
       mov edi,0xb8000	   ; video buffer
       mov ecx,2001
 clearvideo2_sb:

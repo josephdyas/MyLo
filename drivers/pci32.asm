@@ -76,6 +76,27 @@ PciDriver_HUserDevCommand:
 		call PciDriver_ReadDeviceConfigSpace_def
 		ret
 PciDriver_HUserDevCommand2:
+	cmp al, IOC_READ_PCIREGISTERD
+	jne PciDriver_HUserDevCommand3
+		mov ebx, ecx
+		mov edx, esi
+		call PciDriver_ReadResgisterD_def
+		ret
+PciDriver_HUserDevCommand3:
+	cmp al, IOC_WRITE_PCIREGISTERB
+	jne PciDriver_HUserDevCommand4
+		mov ebx, ecx
+		mov edx, esi
+		call PciDriver_WriteRegisterB_def
+		ret
+PciDriver_HUserDevCommand4:
+	cmp al, IOC_WRITE_PCIREGISTERW
+	jne PciDriver_HUserDevCommand5
+		mov ebx, ecx
+		mov edx, esi
+		call PciDriver_WriteRegisterW_def
+		ret
+PciDriver_HUserDevCommand5:
 	jmp PciDriver_UnknowIOCommandCode
 ;------------------------------------------
 ; UNKNOW COMMAND CODE
@@ -90,7 +111,7 @@ PciDriver_UnknowCommandCode:
 	mov eax, -1
 	ret
 Error_no_command_code db 'Undefined System Command code',13,0
-Error_no_io_command_code db 'Undefined IO Command code',13,0
+Error_no_io_command_code db 'Undefined PCI IO Command code',13,0
 	
 ;==================================================================
 ; ebx = Driver Object
@@ -176,7 +197,7 @@ PciDriver_ReadDeviceConfigSpace_def:
 	xor eax, eax
 	ret
 rdcs_error_device_not_found:
-	;mov eax, -1
+	bts eax, 31
 	ret
 ;==================================================================
 PciDriver_ScanBus_def:
@@ -249,7 +270,6 @@ PciDriver_ScanBus_exit:
 ; edx = Device structure index buffer
 ; ecx = Bus Number
 align 4
-
 PciDriver_ScanPciBus_def:
 
 	push esi edi
@@ -329,7 +349,6 @@ pciscanexit:
       pop edi esi
       ret
 ;==================================================================
-
 align 4
 ; -----------------------------------------------------------------
 ; os_pci_read_reg -- Read from a register on a PCI device
@@ -375,24 +394,28 @@ PciReadRegB_def:
 ;------------------------------------------------------------------
 ;						 bh	   bl
 ; ebx = PCI Device address dd 0|0000000|00000000|00000|000|000000|00b
-;			      / \     / \      / \   / \ / \	/ \
-;			     E	  Res	  Bus	  Dev	F    Reg    0
-PciReadRegD_def:
-
-	or ebx, 080000000h		; Set bit 31
-	mov eax, ebx
+;			                  / \     / \      / \   / \ / \	/ \
+;			                 E	  Res	  Bus	  Dev	F    Reg    0
+PciDriver_ReadResgisterD_def:; PciReadRegD_def:
+	push ebx
+	mov eax,edx
+	bts eax, 31
 	mov dx, PCI_CONFIG_ADDRESS
 	out dx, eax
 	mov dx, PCI_CONFIG_DATA
 	in eax, dx
-
+	pop ebx
+	mov [ebx], eax
 	ret
 ;==================================================================
-; ebx = PCI Device address
-; edx = data
-PciWriteRegB_def:
+; ebx = buffer
+; edx = address
+PciDriver_WriteRegisterB_def:
+	xchg ebx, edx
+	mov edx, [edx]
 	push edx
-	or ebx, 080000000h		; Set bit 31
+	xor edx,edx
+	bts ebx, 31	
 	mov eax, ebx
 	and al, 0fch
 	mov dx, PCI_CONFIG_ADDRESS
@@ -402,12 +425,13 @@ PciWriteRegB_def:
 	and bl, 11b
 	or  dl, bl
 	out dx, al
-
 	ret
 ;------------------------------------------------------------------
-PciWriteRegW_def:
+PciDriver_WriteRegisterW_def:
+	xchg ebx, edx
+	mov edx, [edx]
 	push edx
-	or ebx, 080000000h		; Set bit 31
+	bts ebx, 31		; Set bit 31
 	mov eax, ebx
 	and al, 0fch
 	mov dx, PCI_CONFIG_ADDRESS

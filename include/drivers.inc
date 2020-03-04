@@ -1,2 +1,2 @@
-include 'include\hpci32.inc'
-include 'include\hehci.inc'
+include 'include\hpci32.asm'
+include 'include\hehci.asm'

@@ -16,3 +16,11 @@
 	A função de inicialização do Driver EHCI está senda chamada, falta implementar a função de leitura do PCI Config Space no driver PCI para que o Driver Ehci possa dar continuidade a inicialização do Controlador.
 
 PROJEÇÃO DE TAREFA: Escrever a inicialização do do Controlador EHCI e fazer a chamada do Driver Root Bus do Barramento USB. Obs. por questões de performance talves o código do Root Bus serja implementado junto ao Driver Ehci, uma vez que só existirá um Barramento Raiz por controlador. O Driver de Barramento Generico ( Como um Hub) será implementado separadamente ou será reaproveitado o Código do Root Bus.
+
+11:13 26/01/2020 (Log no dia seguinte)
+
+	A função de leitura do espaço de configuração PCI está funcionando e retornando para o driver EHCI.
+
+PROJEÇÃO DE TAREFA: Dar continuidade a inicialização do controlador EHCI.
+
+Obs.: Para cada controlador sendo inicializado deve ser alocado memoria para suas respectivas estruturas.

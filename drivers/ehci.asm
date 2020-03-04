@@ -18,10 +18,6 @@
 ; FreeControlPipe - Free the Control Pipe
 ;--------------------------------------
 ; IMPORTED FUNCTIONS
-; PciReadRegD
-; PciReadRegB
-; PciWriteRegD
-; PciWriteRegB
 ; PrintK
 ;==============================================================================
 ; DRIVER HEADER
@@ -38,7 +34,7 @@ VPCIEHCI PCI_HEADER_TYPE_0
 end virtual
 
 virtual at esi
-operacional EHCI_OPERACIONAL_REGISTER
+operational EHCI_OPERATIONAL_REGISTER
 end virtual
 
 virtual at 0
@@ -55,8 +51,9 @@ virtual at 0
 setup_packet SETUP_PACKET
 end virtual
 
+PciRegister dd ? ;Pci Register read with IO Control command from PCI Driver.
 EhciEECPReg dd ?
-gCurrentEhciDO dd ?
+gCurrentEhciDO dd ?;Used to hold Device Object to be handled for some functions
 ;==============================================================================
 ;Enhanced Host Controller - EHCI and USB
 align 32
@@ -64,10 +61,11 @@ EhciDriver_getDeviceDescriptorCmd  db 80h,06h,00h,01h,00h,00h,12h,00h
 EhciDriver_setDeviceAddressCmd     db 00h,05h,00h,00h,00h,00h,00h,00h
 
 gEhciDescriptorBuffer db sizeof.EHCI_DESCRIPTOR*8 dup(0)
+gEhciConfigTD db 32*3 dup(0)
+gEhciConfigPipe	db 64 dup(0) ; Queue Head used to config new devices
 ;==============================================================================
-;TODO: initialize the DeviceClass field
 ; Pci Driver Entry Point
-; ebx = Driver Objetct
+; ebx = Driver Object
 EntryPoint_ehci_driver:
 
 	mov [ebx+VDDO.AddDevice], EhciDriver_AddDevice_def
@@ -88,7 +86,6 @@ EntryPoint_ehci_driver:
 	mov ecx, sizeof.EHCI_DESCRIPTOR*2
 	rep stosd
 ;----------------------------
-
 	ret
 ;==============================================================================
 ;
@@ -117,7 +114,6 @@ EhciDriver_HSystemDeviceCommand:
 	cmp al, IOCC_INIT_DEVICE
 		jne EhciDriver_HSystemDeviceCommand2
 		call EhciDriver_InitDevice_def
-		xor eax, eax
 		ret
 EhciDriver_HSystemDeviceCommand2:
 	jmp EhciDriver_UnknowControlCode
@@ -168,12 +164,63 @@ EhciDriver_AddDevice_def:
 EhciDriver_RemoveDevice_def:
 
 	ret
+	
+;==============================================================================
+;ebx = address and register number
+Ehci_PciReadRegD_def:
+	;-----------------------
+	xor eax,eax
+	mov [PciRegister], eax
+	mov eax, [gCurrentEhciDO]
+	mov edi, [eax+VEhciDescriptor];Reserved+8]
+	mov ebx, [eax+VDO.DeviceParent]
+	mov edx, SD_USER_DEVICE_COMMAND+IOC_READ_PCIREGISTERD
+	lea ecx, [PciRegister]
+	mov esi, ebx
+	call IODeviceControl_def
+	test eax,eax
+	js EhciDriver_Erro_Read_PciRegister
+	mov eax, [PciRegister]
+	;-----------------------
+	ret
+;==============================================================================
+; ebx = pci addres with register address
+; edx = value to write
+Ehci_PciWriteRegB_def:
+	mov [PciRegister], edx
+	mov eax, [gCurrentEhciDO]
+	mov edi, [eax+VEhciDescriptor]
+	mov ebx, [eax+VDO.DeviceParent]
+	mov edx, SD_USER_DEVICE_COMMAND+IOC_WRITE_PCIREGISTERB
+	mov ecx, PciRegister
+	mov esi, ebx
+	call IODeviceControl_def
+	ret
+;==============================================================================
+; ebx = pci addres with register address
+; edx = value to write
+Ehci_PciWriteRegW_def:
+	mov [PciRegister], edx
+	mov eax, [gCurrentEhciDO]
+	mov edi, [eax+VEhciDescriptor]
+	mov ebx, [eax+VDO.DeviceParent]
+	mov edx, SD_USER_DEVICE_COMMAND+IOC_WRITE_PCIREGISTERW
+	lea ecx, [PciRegister]
+	mov esi, ebx
+	call IODeviceControl_def
+	ret
+;==============================================================================
+;TODO - error handler
+EhciDriver_Erro_Read_PciConfig:
+EhciDriver_Erro_Read_PciRegister:
+	mov eax, -1
+	ret
+VEhciDescriptor = VDO.Reserved+8
 ;==============================================================================
 EhciDriver_InitDevice_def:
 
 	mov edi, [gCurrentEhciDO]
-	
-	mov ebx, 2000h
+	mov ebx, 2000h ; 8 Kb
 	call AllocMemory_def
 	mov dword [edi+VDO.Reserved], eax		; buffer to hold ehci structures.
 	add eax, 1f00h
@@ -183,45 +230,27 @@ EhciDriver_InitDevice_def:
 	mov dword [edi+VDO.Reserved+8], eax	; Ehci Descriptor
 	;Read Ehci Pci configuration Space
 	mov ebx, [edi+VDO.DeviceParent]
-	mov esi, [edi+VDO.Address]
 	mov edx, SD_USER_DEVICE_COMMAND+IOC_READ_CONFIGSPACE
 	mov ecx, [edi+VDO.Reserved+4]
+	mov esi, [edi+VDO.Address]
 	call IODeviceControl_def
-	cmp eax, -1
-	je EhciDriver_Erro_Read_PciConfig
-	pop edi
-	;DEBUG
-	mov ebx, [edi+VDO.Reserved+4]
-	mov ebx, [ebx]
-	call PrintDword_def
-	mov eax, -1
-	ret
-	test_message db 'test after Read Pci...',13,0
-	;DEBUG
-EhciDriver_Erro_Read_PciConfig:
-	mov ebx, test_message2
-	call PrintK_def
-	mov eax, -1
-	ret
-	test_message2 db 'EhciDriver_Erro_Read_PciConfig...',13,0	
-	
-	
-	mov ebx, [edi+VDO.Address]
-	;--------------
-	; Convert Sloader Pci Address to Pci Address - see pci header. 
-	shr ebx, 8
-	mov eax, ebx
-	shl bh, 3
-	and eax, 111b
-	or bh, al
-	and ebx, 80ffff00h
-	;--------------
-
+	test eax,eax
+	js EhciDriver_Erro_Read_PciConfig
+	pop eax ; gCurrentEhciDO
+	;eax = Device Obejct
+	;edi = Ehci Descriptor
+	mov ebx, [eax+VDO.Address]
+	mov edi, [eax+VEhciDescriptor]
+	mov esi, [eax+VDO.Reserved+4]
+	call Ehci_MakePciAddress_def
 ; Fill Host Controller descriptor
-	mov [edi+VEHCI_DESC.pciConfigSpace], ebx
-	mov [edi+VEHCI_DESC.configSpaceMMIO], edi
+	mov [edi+VEHCI_DESC.pciConfigSpace], eax
+	mov eax, [edi+VDO.Reserved+4]
+	mov [edi+VEHCI_DESC.configSpaceMMIO], eax
 	mov edx, dword [esi+VPCIEHCI.BAR0]
 	mov [edi+VEHCI_DESC.ehciMMIO], edx
+	;get size of CAPLENGTH to get Operational Register
+	;address
 	movzx eax, byte [edx]
 	lea eax, [edx+eax]
 	mov [edi+VEHCI_DESC.ehciOpReg], eax
@@ -229,19 +258,22 @@ EhciDriver_Erro_Read_PciConfig:
 	mov [edi+VEHCI_DESC.ehciSParams], eax
 	lea eax, [edx+08h]
 	mov [edi+VEHCI_DESC.ehciCParams], eax
-	mov eax, dword [eax]
+;Check Extented Cap. Register.
+	mov eax, dword [eax] ; eax = HCCPARAMS
 	shr eax, 8
-	and eax, 0ffh
+	and eax, 0ffh	; al = EHCI Extented Cap. Pointer.
 	mov [edi+VEHCI_DESC.ehciExCParamOffset], eax
-;------------------------------------------------------------------------------
-; configure the controller
-	cmp eax, 0
+	test eax,eax
 	jnz ehci_eecp_present
-	;ehci_eecp_not_present:
-	mov ebx, boot_ehci_no_eecp
+;ehci_eecp_not_present:
+	mov ebx, ehci_eecp_not_present
 	call PrintK_def
-	mov eax, 1
+	jmp initialize_host_controller
+	;TODO - remove this.
+	mov eax, -1
 	ret
+ehci_eecp_not_present db 'Ehci Extented capabilites not present...',13,0
+	
 ;&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 ehci_eecp_present:
 ;get eecp register value from pci config space
@@ -251,28 +283,28 @@ ehci_eecp_present:
 	mov ebx, [edi+VEHCI_DESC.pciConfigSpace]
 	mov bl, al
 	mov [EhciEECPReg], ebx
-	call PciReadRegD_def   ; read the first EECP register
+	call Ehci_PciReadRegD_def
 	clc
 	bt eax, 0		     ; Test if the eecp Legact Support. Capability ID, 1 = Legact Support
 	jc ehci_legacy_support
-	mov esi, boot_ehcinolegacysup
-	call Puts
-	mov eax, 1
-	ret
+	mov ebx, ehci_no_legacy_support
+	call PrintK_def
+	jmp initialize_host_controller
+ehci_no_legacy_support db 'Ehci No Legacy Support...',13,0
 ;&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 ehci_legacy_support:
 ;<<************************************
 ; set OS Ownership
 	mov ecx, 3
-	set_os_ehci_Ownership:
-	mov dl, 1
+set_os_ehci_Ownership:
+	mov edx, 1
 	mov ebx, [EhciEECPReg]
 	add bl, 3		; HC OS Owned Semaphore byte offset (into 4 bytes register)
-	call PciWriteRegB_def
+	call Ehci_PciWriteRegB_def
 	; SLEEP - macro to wait at least 10 miliseconds before continue
-	SLEEP			
+	;SLEEP			
 	mov ebx, [EhciEECPReg]
-	call PciReadRegD_def
+	call Ehci_PciReadRegD_def
 	clc
 	bt eax, 16
 	jnc os_ehci_owned
@@ -280,7 +312,7 @@ ehci_legacy_support:
 	jnz set_os_ehci_Ownership
 	mov esi, boot_osunebletoownerehci
 	call Puts
-	mov eax, 1
+	mov eax, -1
 	ret
 ;&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 ;************************************>>
@@ -291,37 +323,53 @@ os_ehci_owned:
 	mov ebx, [EhciEECPReg]
 	add bl, 4
 	push ebx
-	call PciReadRegD_def
+	call Ehci_PciReadRegD_def
 	mov edx, eax
 	mov bx, 2000h	; keep only SMI on PCI Command Enable.
 	and dx, bx
 	pop ebx
-	call PciWriteRegW_def
-;---------------------------------------
+	call Ehci_PciWriteRegW_def
+;------------------------------------------------------------------------------
+; configure the controller
+initialize_host_controller:
+	sti
+;	mov ebx, ehci_eecp_present_ok
+;	call PrintK_def
+;	mov eax, -1
+;	ret
+;ehci_eecp_present_ok db 'Configure the Host Controller...',13,0
+	cli
+	mov eax, [gCurrentEhciDO]
+	mov edi, [eax+VEhciDescriptor]
 	mov esi, [edi+VEHCI_DESC.ehciOpReg]
 ; clear Host Controller interrupt's
 	xor eax, eax
-	mov dword [operacional.interrupt], eax
+	mov dword [operational.interrupt], eax
 ; re enable cpu interrupts
 	sti
-	ehci_reset:
-	mov eax, [operacional.status]
+ehci_stop_controller:
+	mov eax, [operational.status]
 	clc
 	bt eax, 12
 	jc ehci_reset_hc
-; TODO - create the code for stop before reset the host controller
+; Stop the host controller if it is running
+	mov al, byte [operational.command]
+	and al, 0feh
+	mov byte [operational.command], al
+	SLEEP
+	jmp ehci_stop_controller
 	mov esi, boot_stop_hc
 	call Puts
 	mov eax, 1
 	ret
 ;&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 ehci_reset_hc:
-	mov al, byte [operacional.command]
+	mov al, byte [operational.command]
 	or al, 02h
-	mov byte [operacional.command], al
+	mov byte [operational.command], al
 	SLEEP
-	ehci_wait_host_reset:
-	mov al, byte [operacional.command]
+ehci_wait_host_reset:
+	mov al, byte [operational.command]
 	clc
 	bt  eax, 1
 	jnc ehci_reset_ok
@@ -330,12 +378,17 @@ ehci_reset_hc:
 ehci_reset_ok:
 ;==============================================================================
 ; Alloc and initiliaze memory for Host Controller
-	mov dword [edi+VEHCI_DESC.ehciframebuffer], FRAME_LIST_BASE
-	mov dword [edi+VEHCI_DESC.ehciCpBuffer], QUEUEHEAD_LIST
-	mov dword [edi+VEHCI_DESC.ehciCtdBuffer], ELEMENT_QUEUEHEAD_LIST
-	mov dword [edi+VEHCI_DESC.ehciDefaultPipe], ELEMENT_QUEUEHEAD_LIST+0c00h
-	mov dword [edi+VEHCI_DESC.ehciDefaultTD], ELEMENT_QUEUEHEAD_LIST+0c80h
-	mov dword [edi+VEHCI_DESC.ehciddBuffer], DEVICE_DESCRIPTOR_LIST
+	mov eax, [gCurrentEhciDO]
+	mov ebx, [eax+VDO.Reserved] ; Address of the Buffer for EHCI structures
+	mov dword [edi+VEHCI_DESC.ehciframebuffer], ebx; FRAME_LIST_BASE
+	lea eax, [ebx+QUEUEHEAD_LIST_OFFSET]; 2KB
+	mov dword [edi+VEHCI_DESC.ehciCpBuffer], eax ; QUEUE_HEAD_LIST - Asynchronous List can be 32 byte aligned
+	lea eax, [ebx+ELEMENT_QUEUEHEAD_LIST_OFFSET]
+	mov dword [edi+VEHCI_DESC.ehciCtdBuffer], eax
+	mov dword [edi+VEHCI_DESC.ehciConfigPipe], gEhciConfigPipe
+	mov dword [edi+VEHCI_DESC.ehciConfigTD], gEhciConfigTD
+	lea eax, [ebx+HCD_DESCRIPTOR_LIST_OFFSET]
+	mov dword [edi+VEHCI_DESC.ehciddBuffer], eax
 	xor eax,eax
 	mov dword [edi+VEHCI_DESC.ehciCPipeBitmap], eax
 	mov dword [edi+VEHCI_DESC.ehciddBitmap], eax
@@ -345,7 +398,7 @@ ehci_reset_ok:
 	push edi
 	mov edi, esi
 	mov eax, 03h	; empty link pointer + EHCI_TYPE_QH + T bit
-	mov ecx, 1024
+	mov ecx, 256
 	rep stosd
 ;--------------------------------------
 ; initialize Queue Head for assyncronus transfers
@@ -373,10 +426,10 @@ ehci_reset_ok:
 ; set the default pipe to point to first QH, eax = ehci descriptor
 	pop edi 		; first QH
 	mov eax, [esp]	; ehci descriptor
-	mov eax, [eax+VEHCI_DESC.ehciDefaultPipe]
+	mov eax, [eax+VEHCI_DESC.ehciConfigPipe]
 	mov [eax+ehci_pipe.NextQH], edi
 ;------------------------------
-	sub esi, 128
+	sub esi, 128 ; back to last Queue Head
 	mov [esi+ehci_pipe.NextQH], eax 	; link the last queue head with the default pipe QH (create the ring).
 ; set the default pipe QH as list Head (with H-bit)
 	mov esi, EHCI_DEV_ADDRESS0+DEFAULT_ENDPOINT+EPS_HIGH+DEFAULT_PCKT_SIZE+QUEUE_HEAD_HBIT+NAK_COUNT_RELOUD
@@ -396,7 +449,7 @@ ehci_reset_ok:
 	loop_fill_eQH_list:
 	mov [esi+transfer_descriptor.NextTD], eax
 	mov [esi+transfer_descriptor.AlternateNextTD], eax
-	add esi, 060h
+	add esi, 64
 	dec ecx
 	jnz loop_fill_eQH_list
 ;******************
@@ -405,33 +458,34 @@ ehci_reset_ok:
 ; set the periodic list and async list
 	mov esi, [edi+VEHCI_DESC.ehciOpReg]
 	mov eax, [edi+VEHCI_DESC.ehciCpBuffer]
-	mov [operacional.asynclistadd], eax
+	mov [operational.asynclistadd], eax
 	mov eax, [edi+VEHCI_DESC.ehciframebuffer]
-	mov [operacional.framelistbase], eax
+	mov [operational.framelistbase], eax
 ; set the segment (for 64 bits) and periodic list index
 	xor eax, eax
-	mov [operacional.segment], eax	; set the 4G segment
-	mov [operacional.frameindex], eax
+	mov [operational.segment], eax	; set the 4G segment
+	mov [operational.frameindex], eax
 ; put the host controller to run
-	mov eax, [operacional.command]
+	mov eax, [operational.command]
 	or eax, 1h
-	mov [operacional.command], eax
+	mov [operational.command], eax
 ; set all ports to be routed to enhanced host controller (2.0)
 	xor eax,eax
 	inc eax
-	mov [operacional.configflag], eax
+	mov [operational.configflag], eax
 ; enable the async schedule
-	mov eax, [operacional.command]
+	mov eax, [operational.command]
 	bts eax, 5
-	mov [operacional.command], eax
+	mov [operational.command], eax
 ;--------------------------------------
+; TODO: CALL THE ROOT HUB
 	xor eax,eax	; set to 0 for 0 errors
 	ret
 ;==============================================================================
 ; handle the ehci events
 ; ebx = Host Controller descriptor
 virtual at 0
-	OPISR EHCI_OPERACIONAL_REGISTER
+	OPISR EHCI_OPERATIONAL_REGISTER
 end virtual
 EhciISR_def:
 	push edi esi ecx
@@ -547,7 +601,7 @@ EhciNewDevice_def:
 ;--------------------------------------
 ;First Port Reset
 	mov eax, [edx]
-    btr eax, 2	   ; clear the bit Port Enabled
+	btr eax, 2	   ; clear the bit Port Enabled
 	bts eax, 8     ; set the bit Port Reset
 	mov [edx], eax
 ;wait_port_reset:
@@ -571,7 +625,7 @@ EhciNewDevice_def:
 portenabled:
 ;--------------------------------------
 ; alloc and initialize a device descriptor and control pipe
-	alloc_newdevice_descriptor:
+alloc_newdevice_descriptor:
 	mov ebx, edi
 	call AllocDeviceDescriptor_def
 	pop edx 	; pop 4
@@ -585,7 +639,7 @@ portenabled:
 initialize_newdevice_transfer:
 ; set the QH and TD
 ;mov ebx, ebx
-	mov edx, [edi+VEHCI_DESC.ehciDefaultTD]
+	mov edx, [edi+VEHCI_DESC.ehciConfigTD]
 	lea ecx, [eax+HCD_devicedescriptor.UsbDeviceDescriptor]
 repeat_initialize_newdevice_transfer:
 	push edx	; push 5 
@@ -593,10 +647,10 @@ repeat_initialize_newdevice_transfer:
 	call EhciSetGetDeviceDescriptor_def
 ; clear the usb interrupt bit
 	mov eax, 011111b
-	mov [operacional.status], eax
+	mov [operational.status], eax
 ;<<************************************
 wait_reclamation_bit:
-	mov eax, [operacional.status]
+	mov eax, [operational.status]
 	bt eax, 13
 	jc wait_reclamation_bit
 ;************************************>>
@@ -608,7 +662,7 @@ wait_reclamation_bit:
 	mov [eax+ehci_pipe.Overlay.NextTD], edx
 ;<<************************************
 wait_for_transfer_complete:
-	mov eax, [operacional.status]
+	mov eax, [operational.status]
 	bt eax, 0
 	jnc wait_for_transfer_complete
 ;************************************>>
@@ -623,7 +677,7 @@ transfer_ok_1:
 	add esp, 2*4
 
 	bts eax, 0
-	mov [operacional.status], eax	; acknowledge the interrupt
+	mov [operational.status], eax	; acknowledge the interrupt
 ;--------------------------------------
 ; second port reset and device address assignment
 	pop esi 	; pop 4 - device descriptor
@@ -654,7 +708,7 @@ portenabled2:
 ; esi = device descriptor
 ; set the QH and TD
 	mov ebx, [esi+HCD_devicedescriptor.ControlPipe]
-	mov edx, [edi+VEHCI_DESC.ehciDefaultTD]
+	mov edx, [edi+VEHCI_DESC.ehciConfigTD]
 ; port number is used as device address
 ; mov ecx, ecx
 	inc ecx
@@ -668,10 +722,10 @@ repeat_initialize_newdevice_transfer2:
 	mov esi, [edi+VEHCI_DESC.ehciOpReg]
 ; clear the usb interrupt bit
 	mov eax, 011111b
-	mov [operacional.status], eax
+	mov [operational.status], eax
 ;<<************************************
 wait_reclamation_bit_2:
-	mov eax, [operacional.status]
+	mov eax, [operational.status]
 	bt eax, 13
 	jnc wait_reclamation_bit_2
 ;************************************>>
@@ -683,7 +737,7 @@ wait_reclamation_bit_2:
 	mov [eax+ehci_pipe.Overlay.NextTD], edx
 ;<<************************************
 wait_for_transfer_complete_2:
-	mov eax, [operacional.status]
+	mov eax, [operational.status]
 	bt eax, 0
 	jnc wait_for_transfer_complete_2
 ;************************************>>
@@ -699,7 +753,7 @@ transfer_ok_2:
 ;----------------------------
 ; acknowledge the interrupt
 	bts eax, 0
-	mov [operacional.status], eax	
+	mov [operational.status], eax	
 ;------------
 exit_new_device:
 	pop ecx edi esi     ; pop 1
@@ -795,7 +849,7 @@ EhciSetGetDeviceDescriptor_def:
 	shl eax, 16
 	mov ax, 0e80h		; Error counter = 4 (11b) + PID code = 2 (10b) SETUP Token + Status Active bit set.
 	mov [edi+transfer_descriptor.Token], eax
-	mov eax, EhciDriver_getDeviceDescriptorCmd 					; at Variable_bootloader
+	mov eax, EhciDriver_getDeviceDescriptorCmd	; at Variable_bootloader
 	mov [edi+transfer_descriptor.BufferPointers], eax
 ;--------------------------------------
 ;set the transaction with packet IN type to retrive Device Descriptor
@@ -972,6 +1026,18 @@ FreeDeviceDescriptor_def:
 	; xor eax,eax
 	pop ecx esi edi
 	sti
+	ret
+;==================================================================
+; convert the MyLo Pci Device Address to Pci device Address.
+; ebx =: bxh = bus, bxl = device, bh = func, bl = index
+Ehci_MakePciAddress_def:
+	shr ebx, 8
+	mov eax, ebx
+	shl bh, 3
+	and eax, 111b
+	or bh, al
+	xor bl,bl
+	mov eax, ebx
 	ret
 ;==============================================================================
 ehci_driver_end:

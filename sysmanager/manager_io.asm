@@ -87,7 +87,6 @@ root_bus_driver_found:
 	mov edx, SD_SYSTEM_DEVICE_COMMAND+IOCC_INIT_DEVICE
 	mov eax, [esi+MIOVDDO.DeviceControl]
 	call eax
-
 exit_InitDeviceSystem:
 	ret
 ;==============================================================================

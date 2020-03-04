@@ -13,6 +13,12 @@ PCI_BUS_MASK        equ 00ff0000h
 PCI_CONFIG_SPACE_SIZE = 100h
 ;USER CONTROL COMMAND CODES
 IOC_READ_CONFIGSPACE	= 02h
+IOC_READ_PCIREGISTERD	= 11h
+IOC_READ_PCIREGISTERW	= 12h
+IOC_READ_PCIREGISTERB	= 13h
+IOC_WRITE_PCIREGISTERD	= 14h
+IOC_WRITE_PCIREGISTERW	= 15h
+IOC_WRITE_PCIREGISTERB	= 16h
 
 ; =============================================================================
 ; pci header type 00h
@@ -25,21 +31,21 @@ struct PCI_HEADER_TYPE_0
      ProgIF                db ?
      SubClass              db ?
      ClassCode             db ?
-     CacheLineSize         db ?
-     LatencyTimer          db ?
-     HeaderType            db ?
-     BIST                  db ?
-     BAR0                  dd ?
-     BAR1                  dd ?
-     BAR2                  dd ?
-     BAR3                  dd ?
-     BAR4                  dd ?
-     BAR5                  dd ?
-     CardBusCISPointer     dd ?
-     SubSystemVendorID     dw ?
-     SubSystemID           dw ?
-     ROMBaseAddress        dd ?
-     CapabilitiesPointer   db ?
+     CacheLineSize			db ?
+     LatencyTimer			db ?
+     HeaderType			db ?
+     BIST					db ?
+     BAR0					dd ?
+     BAR1					dd ?
+     BAR2					dd ?
+     BAR3					dd ?
+     BAR4					dd ?
+     BAR5					dd ?
+     CardBusCISPointer		dd ?
+     SubSystemVendorID		dw ?
+     SubSystemID			dw ?
+     ROMBaseAddress		dd ?
+     CapabilitiesPointer	db ?
      Reserved              db 3 dup(?)
      Reserved2             dd ?
      InterruptLine         db ?

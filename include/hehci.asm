@@ -1,16 +1,11 @@
 ;##############################################################################
 ; EHCI CONSTANTS AND STRUCTURES
-
 ;==============================================================================
 ; CONSTANTS
-FRAME_LIST_BASE                 = 010000h
-QUEUEHEAD_LIST                  = 011000h
-ELEMENT_QUEUEHEAD_LIST          = 012000h
-
-DEVICE_DESCRIPTOR_LIST          = FRAME_LIST_BASE+3000h
-
-GET_DEVICE_DESCRIPTOR_QH        = QUEUEHEAD_LIST
-GET_DEVICE_DESCRIPTOR_TD_LIST   = ELEMENT_QUEUEHEAD_LIST
+FRAME_LIST_SIZE	= 1024
+QUEUEHEAD_LIST_OFFSET	= 800h
+ELEMENT_QUEUEHEAD_LIST_OFFSET = 400h
+HCD_DESCRIPTOR_LIST_OFFSET = 1000h
 
 FLAG_INT_ASYNCAD        = 32
 FLAG_INT_HSYS_ERROR     = 16
@@ -43,17 +38,17 @@ MAX_PACKET_LENGTH       = 64
 
 ; =============================================================================
 ; STRUCTURES
-struct EHCI_OPERACIONAL_REGISTER
-        command         dd ?
-        status          dd ?
-        interrupt       dd ?
-        frameindex      dd ?
-        segment         dd ?
-        framelistbase   dd ?
-        asynclistadd    dd ?
-        reserved        db 36 dup(?)
-        configflag      dd ?
-        portsc          dd ?
+struct EHCI_OPERATIONAL_REGISTER
+        command		dd ?
+        status		dd ?
+        interrupt		dd ?
+        frameindex	dd ?
+        segment		dd ?
+        framelistbase	dd ?
+        asynclistadd	dd ?
+        reserved		db 36 dup(?)
+        configflag	dd ?
+        portsc		dd ?
 ends
 ; EHCI_DESCRIPTOR
 ; contain information for a Enhaced Host Controller. Each controller is
@@ -69,8 +64,8 @@ struct EHCI_DESCRIPTOR
         ehciExCParamOffset   dd ?       ; Offest of EHCI extended Capabilities Param into PCI config space
         ehciOpReg       dd ?
         ehciframebuffer dd ?
-        ehciDefaultPipe dd ?	; Used to Initiliaze new devices.
-        ehciDefaultTD   dd ?	; used with default pipe to initiliaze devices
+        ehciConfigPipe dd ?	; Used to Initiliaze new devices.
+        ehciConfigTD   dd ?	; used with default pipe to initiliaze devices
         ehciCpBuffer    dd ?    ; Control Pipe buffer
         ehciCtdBuffer   dd ?    ; Control Transfer Descriptor buffer
         ehciddBuffer    dd ?	; Device Descriptor Buffer
@@ -79,25 +74,25 @@ struct EHCI_DESCRIPTOR
 ends ; 64 bytes
 
 struct EHCI_TD32
-        NextTD                  dd ?
-        AlternateNextTD         dd ?
-        Token                   dd ?
-        BufferPointers          dd 5 dup(?)
+        NextTD	dd ?
+        AlternateNextTD	dd ?
+        Token	dd ?
+        BufferPointers	dd 5 dup(?)
 ends ;32 bytes
 
 struct EHCI_TD64
-        NextTD                  dd ?
-        AlternateNextTD         dd ?
-        Token                   dd ?
-        BufferPointers          dd 5 dup(?)
-        BufferPointersHigh      dd 5 dup(?) ;for 64 bits
+        NextTD			dd ?
+        AlternateNextTD	dd ?
+        Token				dd ?
+        BufferPointers	dd 5 dup(?)
+        BufferPointersHigh	dd 5 dup(?) ;for 64 bits
 ends ; 52 bytes
 
 struct EHCI_PIPE
-        NextQH          dd ?
-        Token           dd ?
-        Flags           dd ?
-        CurrentTD       dd ?
+        NextQH	dd ?
+        Token		dd ?
+        Flags		dd ?
+        CurrentTD	dd ?
         Overlay         EHCI_TD32
 ends ;48 bytes 68 for EHCI_TD64
 

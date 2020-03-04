@@ -361,7 +361,10 @@ repeat_get_cpu_brand:
 	call InitIOManager_def
 	test eax,eax
 	js StopSystem	; Stop system boot if -1
+	mov ebx, gIOMangerOk
+	call PrintK_def
 	jmp StopSystem
+	gIOMangerOk db 'Input Output Manager Working...',13,0
 ;==============================================================================
 ; SEARCH AND INITIALIZE EHCI HOST CONTROLLER
 cursor	dw ?
@@ -370,7 +373,7 @@ ehcidescAddress dd ?
 ehcilastdevindex dd 0
 ehcicount db 0
 virtual at 0
-	operacional2 EHCI_OPERACIONAL_REGISTER
+	operational2 EHCI_OPERATIONAL_REGISTER
 end virtual
 virtual at 0
 ehcidescriptor1 EHCI_DESCRIPTOR
@@ -458,13 +461,13 @@ testsystem:
 ehci_handle_do:
 	push esi
 	mov eax, [esi+V_ehcidescriptor.ehciOpReg]
-	mov eax, [eax+operacional2.command]
+	mov eax, [eax+operational2.command]
 	call PrintDword_def
 	mov eax, [esi+V_ehcidescriptor.ehciOpReg]
-	mov eax, [eax+operacional2.status]
+	mov eax, [eax+operational2.status]
 	call PrintDword_def
 	mov eax, [esi+V_ehcidescriptor.ehciOpReg]
-	mov eax, [eax+operacional2.asynclistadd]
+	mov eax, [eax+operational2.asynclistadd]
 	call PrintDword_def
 	call NewLine80x25_def
 	pop ebx

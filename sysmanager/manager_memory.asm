@@ -50,6 +50,7 @@ block_descriptor_found:
 	ret	
 ;@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 ; ebx = Size in bytes
+; eax <= -1 if error
 AllocMemory_def:
 	push esi edi
 	push ebx
