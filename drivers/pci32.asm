@@ -111,7 +111,7 @@ PciDriver_UnknowCommandCode:
 	mov eax, -1
 	ret
 Error_no_command_code db 'Undefined System Command code',13,0
-Error_no_io_command_code db 'Undefined PCI IO Command code',13,0
+Error_no_io_command_code db 'Undefined IO Command code',13,0
 	
 ;==================================================================
 ; ebx = Driver Object
@@ -177,27 +177,28 @@ PciDriver_ReadDeviceConfigSpace_def:
 	mov dx, PCI_CONFIG_DATA
 	in eax,dx
 	cmp eax,0xffffffff
-	jz rdcs_error_device_not_found
+	jz .device_not_found
 	cld
 ;copy PCI device space into a buffer
 	;****************************
-	rdcs_dataloop:
+	@@: ;rdcs_dataloop:
 		cmp  cl,PCI_BLOCKINFOSIZE
-		jae rdcs_exitdataloop
+		jae @f;rdcs_exitdataloop
 		mov eax,ecx
 		mov dx,PCI_CONFIG_ADDRESS
 		out dx,eax
 		mov dx,PCI_CONFIG_DATA
 		insd
 		add cl,4 ; get four bytes from port and store in edi and increment edi
-		jmp rdcs_dataloop
+		jmp @b; rdcs_dataloop
 	;****************************
-	rdcs_exitdataloop:
+	@@: ;rdcs_exitdataloop:
 ; convert the PCI device address to mylo pci device address -  See Pci header file
 	xor eax, eax
 	ret
-rdcs_error_device_not_found:
-	bts eax, 31
+.device_not_found:
+	mov eax, -1
+	DebugMessage 'Pci Read Config Space error...'
 	ret
 ;==================================================================
 PciDriver_ScanBus_def:
@@ -230,13 +231,12 @@ repeat_report_devices:
 	mov eax, [esp+4]
 	mov ebx, [edi+eax]
 	mov bl, SD_PCI_BUS	; bus type
-;Function/Interface, Device, Bus, BusType
 ;swap ebx( ABCD -> DCBA)
-	xchg bh, bl
-	ror ebx, 16
-	xchg bh, bl
+	;xchg bh, bl
+	;ror ebx, 16
+	;xchg bh, bl
 	; mov BusType to bl
-	rol ebx, 8
+	;rol ebx, 8
 	mov eax, [esp+8]
 	mov edx, dword [esi+eax+VPCI_H.RevisionID]
 ; RevisionID, ProgIF/Protocol, SubClass, ClassCode
@@ -392,8 +392,8 @@ PciReadRegB_def:
 
 	ret
 ;------------------------------------------------------------------
-;						 bh	   bl
-; ebx = PCI Device address dd 0|0000000|00000000|00000|000|000000|00b
+; ebx = Output Buffer
+; edx = PCI Device address dd 0|0000000|00000000|00000|000|000000|00b
 ;			                  / \     / \      / \   / \ / \	/ \
 ;			                 E	  Res	  Bus	  Dev	F    Reg    0
 PciDriver_ReadResgisterD_def:; PciReadRegD_def:

@@ -172,41 +172,38 @@ Ehci_PciReadRegD_def:
 	xor eax,eax
 	mov [PciRegister], eax
 	mov eax, [gCurrentEhciDO]
-	mov edi, [eax+VEhciDescriptor];Reserved+8]
+	;mov edi, [eax+VEhciDescriptor];Reserved+8]
+	mov esi, ebx
 	mov ebx, [eax+VDO.DeviceParent]
 	mov edx, SD_USER_DEVICE_COMMAND+IOC_READ_PCIREGISTERD
 	lea ecx, [PciRegister]
-	mov esi, ebx
 	call IODeviceControl_def
-	test eax,eax
-	js EhciDriver_Erro_Read_PciRegister
 	mov eax, [PciRegister]
-	;-----------------------
 	ret
 ;==============================================================================
 ; ebx = pci addres with register address
 ; edx = value to write
 Ehci_PciWriteRegB_def:
+	mov esi, ebx
 	mov [PciRegister], edx
 	mov eax, [gCurrentEhciDO]
-	mov edi, [eax+VEhciDescriptor]
+	;mov edi, [eax+VEhciDescriptor]
 	mov ebx, [eax+VDO.DeviceParent]
 	mov edx, SD_USER_DEVICE_COMMAND+IOC_WRITE_PCIREGISTERB
 	mov ecx, PciRegister
-	mov esi, ebx
 	call IODeviceControl_def
 	ret
 ;==============================================================================
 ; ebx = pci addres with register address
 ; edx = value to write
 Ehci_PciWriteRegW_def:
+	mov esi, ebx
 	mov [PciRegister], edx
 	mov eax, [gCurrentEhciDO]
-	mov edi, [eax+VEhciDescriptor]
+	;mov edi, [eax+VEhciDescriptor]
 	mov ebx, [eax+VDO.DeviceParent]
 	mov edx, SD_USER_DEVICE_COMMAND+IOC_WRITE_PCIREGISTERW
 	lea ecx, [PciRegister]
-	mov esi, ebx
 	call IODeviceControl_def
 	ret
 ;==============================================================================
@@ -214,17 +211,17 @@ Ehci_PciWriteRegW_def:
 EhciDriver_Erro_Read_PciConfig:
 EhciDriver_Erro_Read_PciRegister:
 	mov eax, -1
+	DebugMessage 'This is a Sheet Error to Read Pci Data'
 	ret
 VEhciDescriptor = VDO.Reserved+8
 ;==============================================================================
 EhciDriver_InitDevice_def:
 
-	mov edi, [gCurrentEhciDO]
 	mov ebx, 2000h ; 8 Kb
 	call AllocMemory_def
+	mov edi, [gCurrentEhciDO]
 	mov dword [edi+VDO.Reserved], eax		; buffer to hold ehci structures.
 	add eax, 1f00h
-	push edi
 	mov dword [edi+VDO.Reserved+4], eax	; buffer to hold Pci Config Space data for the current controller.
 	call AllocEhciDescriptor_def
 	mov dword [edi+VDO.Reserved+8], eax	; Ehci Descriptor
@@ -235,8 +232,8 @@ EhciDriver_InitDevice_def:
 	mov esi, [edi+VDO.Address]
 	call IODeviceControl_def
 	test eax,eax
-	js EhciDriver_Erro_Read_PciConfig
-	pop eax ; gCurrentEhciDO
+	jnz EhciDriver_Erro_Read_PciConfig
+	mov eax, [gCurrentEhciDO] ; gCurrentEhciDO
 	;eax = Device Obejct
 	;edi = Ehci Descriptor
 	mov ebx, [eax+VDO.Address]
@@ -245,8 +242,7 @@ EhciDriver_InitDevice_def:
 	call Ehci_MakePciAddress_def
 ; Fill Host Controller descriptor
 	mov [edi+VEHCI_DESC.pciConfigSpace], eax
-	mov eax, [edi+VDO.Reserved+4]
-	mov [edi+VEHCI_DESC.configSpaceMMIO], eax
+	mov [edi+VEHCI_DESC.configSpaceMMIO], esi
 	mov edx, dword [esi+VPCIEHCI.BAR0]
 	mov [edi+VEHCI_DESC.ehciMMIO], edx
 	;get size of CAPLENGTH to get Operational Register
@@ -264,18 +260,14 @@ EhciDriver_InitDevice_def:
 	and eax, 0ffh	; al = EHCI Extented Cap. Pointer.
 	mov [edi+VEHCI_DESC.ehciExCParamOffset], eax
 	test eax,eax
-	jnz ehci_eecp_present
+	jnz @f ;ehci_eecp_present
 ;ehci_eecp_not_present:
 	mov ebx, ehci_eecp_not_present
 	call PrintK_def
 	jmp initialize_host_controller
-	;TODO - remove this.
-	mov eax, -1
-	ret
-ehci_eecp_not_present db 'Ehci Extented capabilites not present...',13,0
-	
+ehci_eecp_not_present db 'Ehci EECP not present...',13,0
 ;&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-ehci_eecp_present:
+@@: ;ehci_eecp_present:
 ;get eecp register value from pci config space
 ; retrive eecp register offset and read its value from pci config space
 ; ebx = bus/dev/func address at PCI config space
@@ -284,15 +276,20 @@ ehci_eecp_present:
 	mov bl, al
 	mov [EhciEECPReg], ebx
 	call Ehci_PciReadRegD_def
+	cmp eax, -1
+	jne @f
+	DebugMessage 'Erro to read eecp offset...'
+	ret
+@@:
 	clc
 	bt eax, 0		     ; Test if the eecp Legact Support. Capability ID, 1 = Legact Support
-	jc ehci_legacy_support
+	jc @f;ehci_legacy_support
 	mov ebx, ehci_no_legacy_support
 	call PrintK_def
 	jmp initialize_host_controller
 ehci_no_legacy_support db 'Ehci No Legacy Support...',13,0
 ;&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-ehci_legacy_support:
+@@: ;ehci_legacy_support:
 ;<<************************************
 ; set OS Ownership
 	mov ecx, 3
@@ -305,6 +302,11 @@ set_os_ehci_Ownership:
 	;SLEEP			
 	mov ebx, [EhciEECPReg]
 	call Ehci_PciReadRegD_def
+	cmp eax, -1
+	jne @f
+	DebugMessage 'Erro to check Os ehci ounwership'
+	ret
+@@:
 	clc
 	bt eax, 16
 	jnc os_ehci_owned
@@ -324,6 +326,12 @@ os_ehci_owned:
 	add bl, 4
 	push ebx
 	call Ehci_PciReadRegD_def
+	cmp eax, -1
+	jne @f
+	pop ebx
+	DebugMessage 'Erro to check Os ehci ounwership'
+	ret
+@@:
 	mov edx, eax
 	mov bx, 2000h	; keep only SMI on PCI Command Enable.
 	and dx, bx
@@ -333,10 +341,8 @@ os_ehci_owned:
 ; configure the controller
 initialize_host_controller:
 	sti
-;	mov ebx, ehci_eecp_present_ok
-;	call PrintK_def
-;	mov eax, -1
-;	ret
+	DebugMessage 'Ehci Device init ok...'
+	ret
 ;ehci_eecp_present_ok db 'Configure the Host Controller...',13,0
 	cli
 	mov eax, [gCurrentEhciDO]
@@ -890,21 +896,23 @@ EhciSetGetDeviceDescriptor_def:
 	ret
 ;==============================================================================
 ; Alloc a EHCI descriptor, it's used to allocate an EHCi Descriptor for
+; each Enhanced Host Controller found in the system
 ; Obs.: The Ehci Descriptor Allocator does not need a desallocator because after
 ; getting and initializing each Host Controller it is not released.
-; each Enhanced Host Controller found in the system
 AllocEhciDescriptor_def:
-	push esi edi
+	push esi edi ecx
+	mov ecx, 8 ;maximun number of descriptors
 	mov esi, gEhciDescriptorBuffer
-search_empty_ehci_descriptor:
+@@: ;search_empty_ehci_descriptor:
 	mov eax, [esi+VEHCI_DESC.pciConfigSpace]
 	test eax,eax
-	jz ehci_descriptor_found
+	jz @f ;ehci_descriptor_found
 	add esi, sizeof.EHCI_DESCRIPTOR
-	jmp search_empty_ehci_descriptor
-ehci_descriptor_found:
+	loop @b;search_empty_ehci_descriptor
+	mov esi, -1
+@@: ;ehci_descriptor_found:
 	mov eax, esi
-	pop edi esi
+	pop ecx edi esi
 	ret
 ;==============================================================================
 ; Alloc a HCD device descriptor
@@ -1031,6 +1039,7 @@ FreeDeviceDescriptor_def:
 ; convert the MyLo Pci Device Address to Pci device Address.
 ; ebx =: bxh = bus, bxl = device, bh = func, bl = index
 Ehci_MakePciAddress_def:
+	push edi esi
 	shr ebx, 8
 	mov eax, ebx
 	shl bh, 3
@@ -1038,6 +1047,7 @@ Ehci_MakePciAddress_def:
 	or bh, al
 	xor bl,bl
 	mov eax, ebx
+	pop esi edi
 	ret
 ;==============================================================================
 ehci_driver_end:

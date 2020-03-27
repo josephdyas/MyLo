@@ -24,3 +24,31 @@ PROJEÇÃO DE TAREFA: Escrever a inicialização do do Controlador EHCI e fazer a ch
 PROJEÇÃO DE TAREFA: Dar continuidade a inicialização do controlador EHCI.
 
 Obs.: Para cada controlador sendo inicializado deve ser alocado memoria para suas respectivas estruturas.
+
+01:02 27/03/2020
+
+ALTERÇÃO:
+
+	Devido os testes anteriores terem sidos feitos em uma máquina que não
+possuia o controlador EHCI com Extented Capabilities Pointer. Algunas funções
+de leitura de registro do espaço de configuração PCI não estavam funcinando
+corretamente e precisaram ser revisadas.
+
+	Uma mudança no estilo de armazenamento do endereço PCI no Device Object
+estava gerando erro na hora de passar o endereço do dispositivo no barramento
+pci. A correção foi remover da função PciDriver_ScanBus() a inversão dos bytes
+quando lidos do buffer, passando para a IOReportDevice() da forma correta.
+
+Notas de Retomada:
+
+	O esqueleto do driver RootHub da pilha usb foi criado e precisa ser
+preenchidocom o algoritmo para gerencia os Hubs. Algunas funções executdas no
+momento pelo EHCI deverão ser transferidas para o Driver RootHub.
+	Toda Chamada de criação de pipe para gerir um dispositivo USB deve ser
+feita através da interface de comunicação de drivers (IODeviceControl()).
+	O driver RootHub também será responsavel por gerir os Hubs genericos
+conectados ao Hub Raiz e o driver deverá gerenciar cada Hub como um dispositivo
+ligado ao controlador EHCI e ao mesmo tempo fornecer ao Driver USB que será ligado
+sobre o driver de Hub uma interface que abstraia os hubs e permita o Driver USB
+gerenciar os dispositivos e interfaces como se todos estivessem conectados na
+mesma raíz.

@@ -33,6 +33,7 @@ include '..\SafiraOS\system\src\include\asm\struct.inc'
 include 'include\manager_memory.inc'
 include 'include\manager_io.inc'
 include 'include\drivers.inc'
+include 'include\debug.asm'
 
 use16
 org 8000h
@@ -135,11 +136,9 @@ start:
     push es
     push 0
     pop es
-
     mov   ax, 4f00h			; VESA BIOS function
     mov   di, 600h
     int   10h
-
     cmp   ax, 004fh
     je	  version
     mov   si,VesaNo
@@ -190,11 +189,10 @@ mmap_ok:
 
 SwitchMode:
 
-os_data        equ  os_data_l-gdt_descriptor	; GDTs
-os_code        equ  os_code_l-gdt_descriptor
-tss_seg        equ  TSSS			; address of the tss segment
-tss_des        equ  tss_l-gdt_descriptor	; address of the selector to tss
-
+os_data  equ  os_data_l-gdt_descriptor	; GDTs
+os_code equ  os_code_l-gdt_descriptor
+tss_seg equ  TSSS			; address of the tss segment
+tss_des equ  tss_l-gdt_descriptor	; address of the selector to tss
 	mov ax, 0
 	mov es, ax
 	mov ds, ax
@@ -219,11 +217,9 @@ empty_8042_2:
 	out	0x60, al
 ;------------------------------------------------------------------------------
 ; Set the global descriptor table
-
 	lgdt [gdt_descriptor]	; Load GDT
 ;------------------------------------------------------------------------------
 ; Enabling 32 bit protected mode
-
 	mov	eax, cr0
 	or	dword eax, 0x00000001	; protected mode
 	; and	 eax, 10011111b *65536*256 + 0xffffff ; caching enabled
@@ -251,9 +247,7 @@ protected_mode_code:
 	call ClearScreen80x25_def
 ;==============================================================================
 ; INITIALIZE IDT AND INTERRUPTS PROCEDURES
-
 	call InitializeInterruptSystem_def
-	
 ;--------------------------------------
 ; set the timer counter
 	mov al, 36h
@@ -263,7 +257,7 @@ protected_mode_code:
 	shr ax, 8
 	out 40h, al
 ;--------------------------------------
-; start the interrupt handle
+; start the interrupt handler
 	mov al,11111110b	   ; unmask irq 0 - timer and irq 1 - Keyboard
 	out 21h,al
 	mov ecx,32
@@ -295,7 +289,6 @@ cpuid_4   equ  SYSTEM_INFO_BASE + 0X5c
     popfd				 ;Restore original EFLAGS
     and eax,0x00200000			 ;eax = zero if ID bit can't be changed, else non-zero
     jnz cpuidok
-
     mov esi,boot_cpuiderror
     call Putstty80x25_def
 dontcpuid:
@@ -317,9 +310,7 @@ repeat_getcpuid:
      jge     get_cpuid_done
      inc     esi
      jmp     repeat_getcpuid
-
 get_cpuid_done:
-
       mov ecx,12
       mov esi,cpuid_0+4
       mov edi,boot_cpuidname+6	  ; cpu id name string
@@ -344,11 +335,9 @@ repeat_get_cpu_brand:
 	cmp esi,0x80000005
 	jne repeat_get_cpu_brand
 ;-----------------------------
-
 	mov esi,cpuid_brandString
 	call Putstty80x25_def
 	call NewLine80x25_def
-	
 ;==============================================================================
 ; INITIALIZE MEMORY MANAGMENT
 	mov ebx, G_BlockList
@@ -495,7 +484,7 @@ include 'drivers\sys32.asm'
 include 'drivers\vesa12.asm'
 include 'drivers\rootbus.asm'
 include 'drivers\pci32.asm'
-include 'drivers\ehci.asm'
+include 'drivers\usb\ehci.asm'
 include 'api32.inc'
 ;#############################################################################
 ; GLOBAL CONSTANTS AND VARIABLES
